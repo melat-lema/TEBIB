@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ServiceDetail from './pages/ServiceDetail';
 function App() {
   return (
     <AuthProvider>
@@ -19,6 +20,15 @@ function App() {
             <Dashboard/>
           </ProtectedRoute>
         } />
+
+<Route 
+            path="/services/:id" 
+            element={
+              <ProtectedRoute>
+                <ServiceDetail />
+              </ProtectedRoute>
+            } 
+          />
         <Route path="*" element={<Navigate to="/" replace />} />
         
       </Routes>

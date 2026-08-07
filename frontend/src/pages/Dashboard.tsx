@@ -198,6 +198,7 @@ export default function Dashboard(){
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
+                  onClick={() => navigate(`/services/${service.id}`)}
                   className="group bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-[#b08d57]/30 transition-all duration-300 cursor-pointer flex flex-col"
                 >
                   <div className="flex items-start justify-between mb-4">
