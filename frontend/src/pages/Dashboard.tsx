@@ -7,7 +7,7 @@ import {
   LogOut, Search, Sparkles, Loader2 
 } from 'lucide-react';
 import img from '../assets/Logo.png';
-
+ import ChatWidget from '../components/chat/ChatWidget';
 const iconMap: Record<string, any> = {
   'Immigration': FileText,
   'Civil Registration': Shield,
@@ -232,6 +232,7 @@ export default function Dashboard(){
             })}
           </div>
         )}
+        <ChatWidget />
       </main>
     </div>
     )

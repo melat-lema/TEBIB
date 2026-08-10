@@ -45,14 +45,12 @@ export default function ServiceDetail() {
     const fetchData = async () => {
       setLoading(true);
       
-      // 1. Fetch main service info
       const { data: serviceData } = await supabase
         .from('services')
         .select('*')
         .eq('id', id)
         .single();
 
-      // 2. Fetch detailed chunks from knowledge_base
       const { data: detailsData } = await supabase
         .from('knowledge_base')
         .select('*')
