@@ -12,31 +12,33 @@ export class ChatService {
 
   async processMessage(userMessage: string, language: 'en' | 'am' = 'en') {
     try {
-      // 1. Search the knowledge base for relevant context
+      // 1. Search the knowledge base
       const searchResults = await this.knowledgeService.searchKnowledgeBase(userMessage, 3);
 
-      // 2. Format the context into a single readable string for the AI
+      // 2. Filter out low-similarity results (Crucial for mock embeddings)
+      // If similarity is below 0.6, it's basically random noise, so we ignore it.
+      const relevantResults = searchResults.filter((r: any) => r.similarity > 0.6);
+
       let context = '';
-      if (searchResults.length > 0) {
-        context = searchResults.map((result, index) => {
-          // Return Amharic text if user is chatting in Amharic, else English
+      if (relevantResults.length > 0) {
+        context = relevantResults.map((result: any, index: number) => {
           const text = language === 'am' && result.chunk_text_am ? result.chunk_text_am : result.chunk_text;
           return `Fact ${index + 1}: ${text}`;
         }).join('\n\n');
       } else {
-        context = "No specific information found in the database.";
+        // If no relevant facts are found, tell the AI to just be friendly
+        context = "NO_RELEVANT_INFO_FOUND";
       }
 
-      // 3. Send the user's message + the retrieved context to Gemini
-      const aiResponse = await this.aiService.generateText(userMessage, context);
+      // 3. Send to Gemini
+      const aiResponse = await this.aiService.generateText(userMessage, context, language);
 
       return {
         success: true,
         query: userMessage,
-        sourcesFound: searchResults.length,
+        sourcesFound: relevantResults.length,
         response: aiResponse,
-        // Optional: return sources for UI transparency (e.g., "Source: Manual")
-        sources: searchResults.map(r => ({
+        sources: relevantResults.map((r: any) => ({
           text: language === 'am' && r.chunk_text_am ? r.chunk_text_am : r.chunk_text,
           source: r.service_id ? 'Tebib Database' : 'Unknown'
         }))

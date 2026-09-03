@@ -20,36 +20,48 @@ export class AiService {
     this.chatModel = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   }
 
-  async generateText(userMessage: string, context?: string): Promise<string> {
+  async generateText(userMessage: string, context?: string, language: 'en' | 'am' = 'en'): Promise<string> {
     try {
-      // Attempt to call the real Google API
       const result = await this.chatModel.generateContent({
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }], // Simplified for mock fallback testing
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
         generationConfig: { temperature: 0.3 },
       });
       return result.response.text();
       
     } catch (error) {
-      console.warn('⚠️ Google API failed (likely invalid key region/type). Using MOCK AI response to keep development unblocked.');
-      console.warn('💡 TIP: To fix this permanently, get a NEW key from https://aistudio.google.com/app/apikey (NOT Google Cloud Console).');
+      console.warn('⚠️ Google API failed. Using MOCK AI response to keep development unblocked.');
 
-      // 🚀 DEVELOPMENT MOCK: Simulate exactly what the AI would say based on the context
-      if (context && context.includes('No specific information found')) {
-        return "I'm sorry, I don't have that specific information in my database. Please try rephrasing your question or contact the relevant government office directly.";
+      
+      const lowerMsg = userMessage.toLowerCase();
+
+      // 1. Handle Greetings
+      if (lowerMsg.includes('hello') || lowerMsg.includes('hi') || lowerMsg.includes('ሰላም') || lowerMsg.includes('አሰላም አለኩም')) {
+        return language === 'am' 
+          ? 'ሰላም! እንኳን ደህና መጡ። ስለ ኢትዮጵያ መንግስት አገልግሎቶች፣ ክፍያዎች ወይም መስፈርቶች ምን ልርዳዎ?' 
+          : 'Hello! Welcome to Tebib. How can I help you with Ethiopian government services, fees, or requirements today?';
       }
 
-      // If we have context, format a realistic-sounding response
-      if (context) {
-        const facts = context.split('Fact').filter(f => f.trim().length > 0);
-        if (facts.length > 0) {
-          return `Based on the official guidelines: ${facts[0].trim()} \n\nPlease note that requirements and fees are subject to change. It is always recommended to verify with the respective government office before visiting.`;
-        }
+      // 2. Handle Thanks
+      if (lowerMsg.includes('thank') || lowerMsg.includes('አመሰግናለሁ')) {
+        return language === 'am' ? 'እንኳን ደስ አለዎት! ሌላ ጥያቄ ካለዎት ይጠይቁኝ።' : "You're very welcome! Let me know if you have any other questions.";
       }
 
-      return "I am here to help with Ethiopian government services. Could you please provide more details about what you are looking for?";
+      // 3. Handle No Relevant Info Found (from chat.service.ts)
+      if (context === "NO_RELEVANT_INFO_FOUND") {
+        return language === 'am'
+          ? 'ይቅርታ፣ ስለዚህ ጉዳይ በውሂብ ጎታዬ ውስጥ የተወሰነ መረጃ የለኝም። እባክዎ ጥያቄዎን ይለውጡ ወይም በቀጥታ ከተመለከተው መስሪያ ቤት ያረጋግጡ።'
+          : "I'm sorry, I don't have specific information about that in my database. Could you try rephrasing your question, or verify directly with the relevant government office?";
+      }
+
+      // 4. Fallback for when we DO have context
+      if (context && context.includes('Fact')) {
+        const facts = context.split('Fact').filter((f: string) => f.trim().length > 0);
+        return `Based on the official guidelines: ${facts[0].trim()} \n\nPlease note that requirements and fees are subject to change.`;
+      }
+
+      return "I am here to help with Ethiopian government services. Could you please provide more details?";
     }
   }
-
   async generateEmbedding(text: string): Promise<number[]> {
     try {
       const model = this.genAI.getGenerativeModel({ model: "embedding-001" });

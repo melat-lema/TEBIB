@@ -46,28 +46,31 @@ export class KnowledgeService {
   }
 
 
- async searchKnowledgeBase(query: string, limit: number = 3) {
-    try {
-      // 1. Convert the user's query into a vector embedding
-      const queryEmbedding = await this.aiService.generateEmbedding(query);
+async searchKnowledgeBase(query: string, limit: number = 3) {
+  try {
+    const queryEmbedding = await this.aiService.generateEmbedding(query);
 
-      // 2. Call the Supabase RPC function we just created to find the closest matches
-      const { data, error } = await supabase.rpc('match_documents', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.5, // Only return results that are at least 50% similar
-        match_count: limit,   // Return top 3 matches
-      });
+    const { data, error } = await supabase.rpc('match_documents', {
+      query_embedding: queryEmbedding,
+      match_threshold: 0.7, // ← INCREASED from 0.5 to 0.7
+      match_count: limit,
+    });
 
-      if (error) {
-        console.error('Supabase vector search error:', error);
-        throw error;
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error searching knowledge base:', error);
-      return []; // Return empty array on error so the app doesn't crash
+    if (error) {
+      console.error('Supabase vector search error:', error);
+      return [];
     }
+
+    // Filter out results with low similarity (only keep matches > 0.7)
+    const relevantResults = (data || []).filter(
+      (item: any) => item.similarity > 0.7
+    );
+
+    return relevantResults;
+  } catch (error) {
+    console.error('Error searching knowledge base:', error);
+    return [];
   }
+}
 
 }

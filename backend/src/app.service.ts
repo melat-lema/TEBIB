@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {supabase} from './config/supabase.config';
 import { KnowledgeService } from './modules/knowledge/knowledge.service';
+import { RouterAgent} from './modules/ai/router.agent';
 @Injectable()
 export class AppService {
-  constructor(private readonly knowledgeService: KnowledgeService) {}
+  constructor(private readonly knowledgeService: KnowledgeService, private readonly routerAgent: RouterAgent) {}
 
   async getTestService() {
     try {
@@ -33,5 +34,18 @@ export class AppService {
         similarity: r.similarity.toFixed(4) // Show how close the match was
       })) 
     };
+  }
+   async testRouter(userInput: string) {
+    // 1. Compile the graph
+    const graph = this.routerAgent.compile();
+    
+    // 2. Run the graph with the initial state
+    const result = await graph.invoke({ 
+      userInput: userInput,
+      decision: 'unknown', // default starting value
+      reasoning: ''
+    });
+
+    return result;
   }
 }
