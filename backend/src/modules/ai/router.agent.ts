@@ -1,4 +1,4 @@
-// backend/src/modules/ai/router.agent.ts
+
 import { Injectable } from '@nestjs/common';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { StateGraph, END, START, Annotation } from '@langchain/langgraph';
@@ -26,7 +26,7 @@ export class RouterAgent {
 
   constructor() {
     this.model = new ChatGoogleGenerativeAI({
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-3.5-flash',
       apiKey: process.env.GEMINI_API_KEY,
       temperature: 0,
     });
@@ -44,10 +44,18 @@ export class RouterAgent {
     const structuredModel = this.model.withStructuredOutput(routerSchema);
 
     const prompt = `
-      You are the Router Agent for an Ethiopian Government Services AI assistant.
-      Analyze the user's input and decide where it should be routed.
-      User Input: "${state.userInput}"
-    `;
+  You are the Router Agent for an Ethiopian Government Services AI assistant.
+  The user may write in English or Amharic. Classify their message into exactly one category:
+
+  - "rag": questions about government services, such as fees, requirements, documents needed,
+    office locations, processing time, or how to apply (passport, Kebele ID, business license,
+    driving license, birth certificate, etc.).
+  - "action": requests to write, draft, or create a document or letter
+    (for example an application letter or a complaint letter).
+  - "unknown": greetings, thanks, small talk, or anything unrelated to government services.
+
+  User Input: "${state.userInput}"
+`;
 
     try {
       // Try the real AI model
@@ -55,8 +63,9 @@ export class RouterAgent {
       console.log(`✅ Router Decision: ${result.decision.toUpperCase()} (Reason: ${result.reasoning})`);
       return { decision: result.decision, reasoning: result.reasoning };
       
-    } catch (error) {
-      console.warn('⚠️ LangChain Router API failed. Using MOCK keyword routing to keep development moving.');
+    }catch (error) {
+  console.error('❌ Router error:', error);
+  console.warn('⚠️ LangChain Router API failed. Using MOCK keyword routing to keep development moving.');
       
       // 🚀 DEVELOPMENT MOCK FALLBACK: Simple, reliable keyword matching
       const lowerInput = state.userInput.toLowerCase();

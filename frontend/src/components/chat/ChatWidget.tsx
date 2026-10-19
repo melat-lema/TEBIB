@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Loader2, Bot, User, AlertCircle } from 'lucide-react';
-
+import { supabase } from '../../lib/supabase';
 interface Message {
   id: string;
   role: 'user' | 'ai';
@@ -11,8 +11,9 @@ interface Message {
   isError?: boolean;
 }
 
-export default function ChatWidget() {
+export default function ChatWidget({ lang = 'en' }: { lang?: 'en' | 'am' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -52,11 +53,15 @@ export default function ChatWidget() {
 
     try {
       // 1. Connect to Backend
-     
+           const { data: { session } } = await supabase.auth.getSession();
+
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.text, language: 'en' }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ message: userMessage.text, language: lang, sessionId }),
       });
 
       // 2. Handle Network/Server Errors

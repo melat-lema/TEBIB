@@ -7,6 +7,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -18,6 +19,7 @@ import { ChatModule } from './modules/chat/chat.module';
     KnowledgeModule,
     SeedModule,
     ChatModule,
+    ChatHistoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

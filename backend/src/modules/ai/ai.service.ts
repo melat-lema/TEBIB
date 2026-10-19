@@ -1,36 +1,50 @@
-// backend/src/modules/ai/ai.service.ts
 import { Injectable } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 @Injectable()
 export class AiService {
-  private genAI: GoogleGenerativeAI;
+  private genAI: GoogleGenAI;
   private chatModel: any;
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      throw new Error('❌ CRITICAL: GEMINI_API_KEY is missing from .env file!');
+      throw new Error(' CRITICAL: GEMINI_API_KEY is missing from .env file!');
     }
 
-    console.log(`✅ Gemini API Key loaded (starts with: ${apiKey.substring(0, 6)}...)`);
+    console.log(` Gemini API Key loaded (starts with: ${apiKey.substring(0, 6)}...)`);
 
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.chatModel = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    this.genAI = new GoogleGenAI({apiKey});
+    this.chatModel = this.genAI.models;
   }
-
-  async generateText(userMessage: string, context?: string, language: 'en' | 'am' = 'en'): Promise<string> {
-    try {
-      const result = await this.chatModel.generateContent({
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        generationConfig: { temperature: 0.3 },
-      });
-      return result.response.text();
+async generateText(userMessage: string, context?: string, language: 'en' | 'am' = 'en'): Promise<string> {
+  try {
+    let prompt = userMessage;
+    if (context && context !== "NO_RELEVANT_INFO_FOUND") {
+      prompt = `You are a helpful, concise assistant for Ethiopian government services. 
+        Use ONLY the following context to answer the user's question. 
+        CRITICAL: Answer ONLY what the user specifically asked. If they ask for a fee, state ONLY the fee. Do not list unrelated requirements unless explicitly asked.
+        
+        
+      Context:
+      ${context}
       
-    } catch (error) {
-      console.warn('⚠️ Google API failed. Using MOCK AI response to keep development unblocked.');
+      User Question: ${userMessage}
+      
+      Answer in ${language === 'am' ? 'Amharic' : 'English'}:`;
+    }
 
+      const result = await this.chatModel.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: { temperature: 0.3 },
+    });
+    return result.text ?? '';
+    
+  } catch (error) {
+    console.error('❌ generateText failed:', error);
+    console.warn('⚠️ Google API failed. Using MOCK AI response to keep development unblocked.');
       
       const lowerMsg = userMessage.toLowerCase();
 
@@ -62,17 +76,33 @@ export class AiService {
       return "I am here to help with Ethiopian government services. Could you please provide more details?";
     }
   }
-  async generateEmbedding(text: string): Promise<number[]> {
+async generateEmbedding(text: string, type: 'doc' | 'query' = 'doc'): Promise<number[]> {
+  const res = await this.genAI.models.embedContent({
+    model: 'gemini-embedding-2',
+    contents: text,
+    config: {
+      taskType: type === 'query' ? 'RETRIEVAL_QUERY' : 'RETRIEVAL_DOCUMENT',
+      outputDimensionality: 768,
+    },
+  });
+  return res.embeddings![0].values!;
+}
+
+  async rewriteQuery(question: string, history: string[] = [], retry = false): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "embedding-001" });
-      const result = await model.embedContent(text);
-      return result.embedding.values;
+      const prompt = retry
+        ? `Rewrite this question as a short search query for a database of Ethiopian government service information (fees, requirements, documents, offices). Use the main service name and the topic. Output only the query.\n\nQuestion: ${question}`
+        : `Given the conversation so far and the user's latest message, rewrite the latest message as a complete standalone question. Keep the same language. If it is already standalone, return it unchanged. Output only the question.\n\nConversation:\n${history.join('\n')}\n\nLatest message: ${question}`;
+
+      const result = await this.chatModel.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: prompt,
+        config: { temperature: 0 },
+      });
+      return (result.text ?? '').trim() || question;
     } catch (error) {
-      console.warn("⚠️ Gemini Embedding API failed. Using mock embedding to keep development moving.");
-      
-      // DEVELOPMENT FALLBACK: Generate a valid 768-dimensional vector of random numbers
-      const mockEmbedding = Array(768).fill(0).map(() => Math.random() * 2 - 1);
-      return mockEmbedding;
+      console.error('❌ rewriteQuery failed:', error);
+      return question; // safe fallback: use the original question
     }
   }
 }

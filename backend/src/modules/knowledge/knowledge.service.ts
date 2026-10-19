@@ -1,3 +1,4 @@
+// backend/src/modules/knowledge/knowledge.service.ts
 import { Injectable } from '@nestjs/common';
 import { supabase } from '../../config/supabase.config';
 import { AiService } from '../ai/ai.service';
@@ -6,7 +7,6 @@ import { AiService } from '../ai/ai.service';
 export class KnowledgeService {
   constructor(private readonly aiService: AiService) {}
 
-  
   async addKnowledgeChunk(
     serviceId: string,
     chunkText: string,
@@ -15,11 +15,9 @@ export class KnowledgeService {
     sourceDetails: string,
   ) {
     try {
-      
-      const embedding = await this.aiService.generateEmbedding(chunkText);
-      const embeddingAm = await this.aiService.generateEmbedding(chunkTextAm);
+      const embedding = await this.aiService.generateEmbedding(chunkText, 'doc');
+      const embeddingAm = await this.aiService.generateEmbedding(chunkTextAm, 'doc');
 
-    
       const { data, error } = await supabase
         .from('knowledge_base')
         .insert([
@@ -45,32 +43,27 @@ export class KnowledgeService {
     }
   }
 
+   async searchKnowledgeBase(query: string, limit: number = 3, threshold: number = 0.3) {
+    console.log(`\n🔍 Searching database for: "${query}"`);
 
-async searchKnowledgeBase(query: string, limit: number = 3) {
-  try {
-    const queryEmbedding = await this.aiService.generateEmbedding(query);
+    const queryEmbedding = await this.aiService.generateEmbedding(query, 'query');
 
     const { data, error } = await supabase.rpc('match_documents', {
       query_embedding: queryEmbedding,
-      match_threshold: 0.7, // ← INCREASED from 0.5 to 0.7
+      match_threshold: threshold,
       match_count: limit,
     });
 
     if (error) {
-      console.error('Supabase vector search error:', error);
-      return [];
+      console.error('❌ match_documents error:', error);
+      throw error;
     }
 
-    // Filter out results with low similarity (only keep matches > 0.7)
-    const relevantResults = (data || []).filter(
-      (item: any) => item.similarity > 0.7
+    console.log(
+      '📊 Similarity scores:',
+      (data ?? []).map((d: any) => Number(d.similarity).toFixed(3)),
     );
 
-    return relevantResults;
-  } catch (error) {
-    console.error('Error searching knowledge base:', error);
-    return [];
+    return data ?? [];
   }
-}
-
 }

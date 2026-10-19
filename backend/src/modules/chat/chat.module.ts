@@ -4,9 +4,9 @@ import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { AiModule } from '../ai/ai.module';
-
+import { ChatHistoryModule } from '../chat-history/chat-history.module';
 @Module({
-  imports: [KnowledgeModule, AiModule], // <-- Crucial for dependency injection
+  imports: [KnowledgeModule, AiModule, ChatHistoryModule], // <-- Crucial for dependency injection
   controllers: [ChatController],
   providers: [ChatService],
   exports: [ChatService],

@@ -232,7 +232,7 @@ export default function Dashboard(){
             })}
           </div>
         )}
-        <ChatWidget />
+        <ChatWidget lang={lang} />
       </main>
     </div>
     )
