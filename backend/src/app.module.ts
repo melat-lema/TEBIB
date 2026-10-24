@@ -8,6 +8,8 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ScraperModule } from './modules/scraper/scraper.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -20,6 +22,8 @@ import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
     SeedModule,
     ChatModule,
     ChatHistoryModule,
+    ScheduleModule.forRoot(),
+    ScraperModule,  
   ],
   controllers: [AppController],
   providers: [AppService],
