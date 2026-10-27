@@ -17,11 +17,17 @@ const SEED_DATA = [
         en: "Passport fees in Ethiopia: a new passport or renewal costs 5,000 ETB. Urgent issuance costs 20,000 ETB for delivery within 5 days or 25,000 ETB within 2 days. Replacing a lost passport costs 13,000 ETB. Applying from abroad costs 200 USD at an embassy, 250 USD online, and 350 USD for urgent requests. Fees can change, so confirm with the Immigration and Citizenship Service (ICS).",
         am: "የፓስፖርት ክፍያ፡ አዲስ ፓስፖርት ወይም እድሳት 5,000 ብር ነው። አስቸኳይ አገልግሎት በ5 ቀናት ውስጥ ለማግኘት 20,000 ብር፣ በ2 ቀናት ውስጥ ለማግኘት 25,000 ብር ነው። የጠፋ ፓስፖርት መተኪያ 13,000 ብር ነው። ከውጭ ሀገር ለሚያመለክቱ በኤምባሲ 200 የአሜሪካ ዶላር፣ በኦንላይን 250 ዶላር፣ አስቸኳይ ከሆነ 350 ዶላር ነው። ክፍያ ሊቀየር ስለሚችል ከኢሚግሬሽንና ዜግነት አገልግሎት (ICS) ያረጋግጡ።",
       },
+         {
+        // VERIFIED (ICS announcement, January 2026) for the online process; document list is from an older report.
+        source: 'ICS announcement (ics.gov.et, Jan 2026) + Addis Fortune 2019 for documents',
+        en: "Passport application in Ethiopia: new passports, renewals, lost or damaged passports, corrections, and both regular and urgent e-passport services are requested by registering on the ICS online portal (immigration.gov.et), and the service is available at all ICS branch offices including Addis Ababa. Applicants have typically been asked to present a Kebele ID and a birth certificate, along with passport-size photos. The exact document list may have changed, so confirm with ICS (free call 8133) before you go.",
+        am: "በኢትዮጵያ አዲስ ፓስፖርት፣ እድሳት፣ የጠፋ ወይም የተበላሸ ፓስፖርት፣ እርማት እንዲሁም መደበኛና አስቸኳይ ኢ-ፓስፖርት አገልግሎቶች በኢሚግሬሽንና ዜግነት አገልግሎት (ICS) የኦንላይን ድረ ገጽ (immigration.gov.et) በመመዝገብ ይጠየቃሉ፤ አገልግሎቱ አዲስ አበባን ጨምሮ በሁሉም የICS ቅርንጫፍ ቢሮዎች ይሰጣል። ብዙውን ጊዜ የቀበሌ መታወቂያ፣ የልደት ምስክር ወረቀት እና የፓስፖርት መጠን ፎቶዎች ይጠየቃሉ። ዝርዝሩ ሊቀየር ስለሚችል ከመሄድዎ በፊት ከICS (ነፃ የስልክ መስመር 8133) ያረጋግጡ።",
+      },
       {
-        // PARTLY VERIFIED: Kebele ID + birth certificate reported in a 2019 news article (old). Confirm with ICS.
-        source: 'Addis Fortune 2019 report (old) - confirm with ICS',
-        en: "Passport application in Ethiopia: apply through the Immigration and Citizenship Service (ICS). Applicants have typically been asked to present a Kebele ID and a birth certificate, along with passport-size photos. The exact document list and the appointment process may have changed, so confirm with ICS before you go.",
-        am: "ፓስፖርት ለማውጣት በኢሚግሬሽንና ዜግነት አገልግሎት (ICS) ማመልከት ይኖርብዎታል። ብዙውን ጊዜ የቀበሌ መታወቂያ፣ የልደት ምስክር ወረቀት እና የፓስፖርት መጠን ፎቶዎች ይጠየቃሉ። ዝርዝሩና የቀጠሮ አሰጣጡ ሊቀየር ስለሚችል ከመሄድዎ በፊት ከICS ያረጋግጡ።",
+        // VERIFIED (ICS website contact details)
+        source: 'ICS official website (ics.gov.et)',
+        en: "How to contact the Immigration and Citizenship Service (ICS): free call line 8133, or email info@ics.gov.et.",
+        am: "የኢሚግሬሽንና ዜግነት አገልግሎት (ICS) ማግኛ፡ ነፃ የስልክ መስመር 8133፣ ወይም ኢሜይል info@ics.gov.et።",
       },
     ],
   },
@@ -39,12 +45,12 @@ const SEED_DATA = [
   {
     serviceName: 'Business License Registration',
     chunks: [
-      {
-        // UNVERIFIED: carried over from the old seed.
-        source: 'UNVERIFIED (old seed)',
-        en: "To register a new business, go to the Ministry of Trade and Regional Integration. Requirements reported: 1. Trade name reservation certificate, 2. Lease agreement for your office, 3. TIN (Tax Identification Number). The registration fee varies by business type. This information is unconfirmed and may have changed, so check with the Ministry or your local trade office.",
-        am: "አዲስ ንግድ ለመመዝገብ ወደ ንግድና ቀጠናዊ ትስስር ሚኒስቴር ይሂዱ። የሚያስፈልጉ ነገሮች፡ 1. የንግድ ስም ማስያዣ ሰርተፍኬት፣ 2. የቢሮ የኪራይ ውል፣ 3. TIN (የግብር ከፋይ መለያ ቁጥር)። የምዝገባ ክፍያ እንደ ንግዱ ዓይነት ይለያያል። ይህ መረጃ ያልተረጋገጠ እና ሊቀየር የሚችል ስለሆነ ከሚኒስቴሩ ወይም ከአካባቢዎ የንግድ ጽሕፈት ቤት ያረጋግጡ።",
-      },
+           {
+        // PARTLY VERIFIED: e-Trade portal (MoTRI) and the lease change come from news and guide sources. Re-check on etrade.gov.et.
+        source: 'e-Trade portal (etrade.gov.et) + Addis Fortune 2022',
+        en: "Business registration and licensing in Ethiopia are handled online through the Ministry of Trade and Regional Integration's e-Trade portal (etrade.gov.et). Office lease agreements were reported to no longer be required, but requirements can differ by business type and region, so confirm on the portal or with your trade bureau.",
+        am: "በኢትዮጵያ የንግድ ምዝገባና ፈቃድ አገልግሎት በንግድና ቀጠናዊ ትስስር ሚኒስቴር የኢ-ትሬድ (e-Trade) ድረ ገጽ (etrade.gov.et) በኦንላይን ይሰጣል። የቢሮ የኪራይ ውል ማቅረብ እንደማይጠበቅ ተዘግቧል፤ ሆኖም መስፈርቶች እንደ ንግዱ ዓይነትና ክልል ሊለያዩ ስለሚችሉ በድረ ገጹ ወይም በአካባቢዎ የንግድ ቢሮ ያረጋግጡ።",
+      },,
     ],
   },
   {
@@ -103,6 +109,7 @@ export class SeedService {
 
       // 3. Add each chunk (the source is stored in source_details)
       for (const chunk of serviceData.chunks) {
+        if(!chunk) continue;
         await this.knowledgeService.addKnowledgeChunk(
           service.id,
           chunk.en,

@@ -35,46 +35,34 @@ async generateText(userMessage: string, context?: string, language: 'en' | 'am' 
       Answer in ${language === 'am' ? 'Amharic' : 'English'}:`;
     }
 
-      const result = await this.chatModel.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: { temperature: 0.3 },
-    });
-    return result.text ?? '';
-    
-  } catch (error) {
-    console.error('❌ generateText failed:', error);
-    console.warn('⚠️ Google API failed. Using MOCK AI response to keep development unblocked.');
-      
-      const lowerMsg = userMessage.toLowerCase();
-
-      // 1. Handle Greetings
-      if (lowerMsg.includes('hello') || lowerMsg.includes('hi') || lowerMsg.includes('ሰላም') || lowerMsg.includes('አሰላም አለኩም')) {
-        return language === 'am' 
-          ? 'ሰላም! እንኳን ደህና መጡ። ስለ ኢትዮጵያ መንግስት አገልግሎቶች፣ ክፍያዎች ወይም መስፈርቶች ምን ልርዳዎ?' 
-          : 'Hello! Welcome to Tebib. How can I help you with Ethiopian government services, fees, or requirements today?';
+        const retries = 3;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await this.chatModel.generateContent({
+          model: attempt < retries ? 'gemini-3.5-flash' : 'gemini-3.5-flash-lite',
+          contents: prompt,
+          config: { temperature: 0.3 },
+        });
+        return result.text ?? '';
+      } catch (error: any) {
+        const status = error?.status ?? error?.code;
+        const retryable = status === 503 || status === 429;
+        console.error(`❌ generateText attempt ${attempt} failed (${status ?? 'unknown'})`);
+        if (!retryable || attempt === retries) break;
+        await new Promise((r) => setTimeout(r, attempt * 3000));
       }
-
-      // 2. Handle Thanks
-      if (lowerMsg.includes('thank') || lowerMsg.includes('አመሰግናለሁ')) {
-        return language === 'am' ? 'እንኳን ደስ አለዎት! ሌላ ጥያቄ ካለዎት ይጠይቁኝ።' : "You're very welcome! Let me know if you have any other questions.";
-      }
-
-      // 3. Handle No Relevant Info Found (from chat.service.ts)
-      if (context === "NO_RELEVANT_INFO_FOUND") {
-        return language === 'am'
-          ? 'ይቅርታ፣ ስለዚህ ጉዳይ በውሂብ ጎታዬ ውስጥ የተወሰነ መረጃ የለኝም። እባክዎ ጥያቄዎን ይለውጡ ወይም በቀጥታ ከተመለከተው መስሪያ ቤት ያረጋግጡ።'
-          : "I'm sorry, I don't have specific information about that in my database. Could you try rephrasing your question, or verify directly with the relevant government office?";
-      }
-
-      // 4. Fallback for when we DO have context
-      if (context && context.includes('Fact')) {
-        const facts = context.split('Fact').filter((f: string) => f.trim().length > 0);
-        return `Based on the official guidelines: ${facts[0].trim()} \n\nPlease note that requirements and fees are subject to change.`;
-      }
-
-      return "I am here to help with Ethiopian government services. Could you please provide more details?";
     }
+
+    return language === 'am'
+      ? 'ይቅርታ፣ አገልግሎቱ አሁን በጣም ተጠምዷል። እባክዎ ከትንሽ ጊዜ በኋላ እንደገና ይሞክሩ።'
+      : 'Sorry, the assistant is very busy right now. Please try again in a minute.';
+  }
+  catch (error) {
+    console.error('❌ Fatal error in generateText:', error);
+    return language === 'am'
+      ? 'ይቅርታ፣ ስህተት ተፈጥሯል።'
+      : 'Sorry, an error occurred.';
+  }
   }
 async generateEmbedding(text: string, type: 'doc' | 'query' = 'doc'): Promise<number[]> {
   const res = await this.genAI.models.embedContent({
@@ -105,4 +93,27 @@ async generateEmbedding(text: string, type: 'doc' | 'query' = 'doc'): Promise<nu
       return question; // safe fallback: use the original question
     }
   }
+
+    async extractFacts(prompt: string, retries = 3): Promise<any[]> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await this.chatModel.generateContent({
+          model: attempt < retries ? 'gemini-3.5-flash' : 'gemini-3.5-flash-lite',
+          contents: prompt,
+          config: { temperature: 0, responseMimeType: 'application/json' },
+        });
+        const parsed = JSON.parse((result.text ?? '').trim());
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error: any) {
+        const status = error?.status ?? error?.code;
+        const retryable = status === 503 || status === 429;
+        if (!retryable || attempt === retries) throw error;
+        const wait = attempt * 4000;
+        console.warn(`⚠️ Gemini busy (${status}), retry ${attempt}/${retries - 1} in ${wait / 1000}s`);
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
+    return [];
+  }
 }
+
