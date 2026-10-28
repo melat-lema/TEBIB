@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ServiceDetail from './pages/ServiceDetail';
+import AdminLogin from './pages/AdminLogin';
 function App() {
   return (
     <AuthProvider>
@@ -15,6 +16,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login/>}/>
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard/>
