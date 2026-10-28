@@ -9,6 +9,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ServiceDetail from './pages/ServiceDetail';
 import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
 function App() {
   return (
     <AuthProvider>
@@ -17,6 +18,11 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login/>}/>
         <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={
+          
+            <AdminDashboard />
+       
+        } />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard/>

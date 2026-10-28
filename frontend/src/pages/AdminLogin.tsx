@@ -47,46 +47,45 @@ export default function AdminLogin() {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // 1. Authenticate with Supabase
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // 1. Call your working backend login endpoint
+      const response = await fetch('http://localhost:3000/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (authError || !authData.user) {
-      setError(t.invalidCredentials);
-      toast.error(t.invalidCredentials);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || t.invalidCredentials);
+      }
+
+      // 2. ✅ CRITICAL FIX: Save the token to localStorage so the dashboard accepts you!
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUser', JSON.stringify(data.user));
+
+      // 3. Success! Redirect to admin dashboard
+      toast.success(t.loginSuccess);
+      setTimeout(() => {
+        navigate("/admin/dashboard");
+      }, 1000);
+      
+    } catch (err: any) {
+      const errorMsg = err.message || t.invalidCredentials;
+      setError(errorMsg);
+      toast.error(errorMsg);
       setLoading(false);
-      return;
     }
-
-    // 2. Check if the user has the 'admin' role in the profiles table
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', authData.user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== 'admin') {
-      setError(t.accessDenied);
-      toast.error(t.accessDenied);
-      await supabase.auth.signOut(); // Kick them out immediately
-      setLoading(false);
-      return;
-    }
-
-    // 3. Success! Redirect to admin dashboard
-    toast.success(t.loginSuccess);
-    setTimeout(() => {
-      navigate("/admin/dashboard");
-    }, 1500);
   };
-
+  
   const inputClass = "block w-full py-2.5 pl-10 pr-4 bg-gray-50 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#b08d57] focus:border-transparent transition-all duration-200 text-sm";
 
   return (
