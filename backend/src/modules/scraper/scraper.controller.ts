@@ -49,7 +49,7 @@ export class ScraperController {
       ? (types.split(',').map((t) => t.trim()).filter((t) => t === 'website' || t === 'telegram') as Array<'website' | 'telegram'>)
       : undefined;
 
-    this.logger.log(`🧪 Manual pipeline trigger${list ? ` (${list.join(', ')})` : ''}`);
+    this.logger.log(`Manual pipeline trigger${list ? ` (${list.join(', ')})` : ''}`);
     const outcome = await this.scraperService.runPipeline(list);
 
     return {

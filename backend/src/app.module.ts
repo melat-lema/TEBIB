@@ -10,6 +10,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ScraperModule } from './modules/scraper/scraper.module';
+import { AdminModule } from './modules/admin/admin.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,7 +24,8 @@ import { ScraperModule } from './modules/scraper/scraper.module';
     ChatModule,
     ChatHistoryModule,
     ScheduleModule.forRoot(),
-    ScraperModule,  
+    ScraperModule, 
+    AdminModule, 
   ],
   controllers: [AppController],
   providers: [AppService],
