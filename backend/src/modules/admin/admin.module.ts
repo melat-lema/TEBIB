@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { AdminController } from './admin.controller';
+import { AdminController, AdminAuthController } from './admin.controller';
+import { AdminGuard } from './admin.guard';
+import { ScraperModule } from '../scraper/scraper.module';
+import { KnowledgeModule } from '../knowledge/knowledge.module';
 
 @Module({
-  providers: [AdminService],
-  controllers: [AdminController],
+  imports: [ScraperModule, KnowledgeModule],
+  providers: [AdminService, AdminGuard],
+  controllers: [AdminAuthController, AdminController],
   exports: [AdminService],
 })
 export class AdminModule {}

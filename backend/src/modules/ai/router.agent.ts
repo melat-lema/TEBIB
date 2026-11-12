@@ -1,108 +1,64 @@
-
 import { Injectable } from '@nestjs/common';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { StateGraph, END, START, Annotation } from '@langchain/langgraph';
-import { z } from 'zod';
 
-// 1. DEFINE THE STATE
+export type Intent = 'rag' | 'action' | 'unknown';
+
+// Characters allowed after a greeting. Written out explicitly because \W would
+// also match Amharic letters and make "ሰላም ፓስፖርት ስንት ነው" look like a greeting.
+const TAIL = '[\\s.!?,።፧፣]*';
+
+const GREETING = new RegExp(
+  `^(hi|hello|hey|good\\s+(morning|afternoon|evening)|thanks?|thank\\s+you|ok(ay)?|bye|goodbye|selam|ሰላም|ሰላም\\s+ነው|እንዴት\\s+ነህ|እንዴት\\s+ነሽ|እንዴት\\s+ናችሁ|አመሰግናለሁ|አመሰግናለው|ደህና\\s+ሁን|ደና\\s+ሁን)${TAIL}$`,
+  'i',
+);
+
+const ACTION_EN = /\b(write|draft|compose|prepare|create|generate)\b[^.?!]{0,40}\b(letter|application|complaint|request|template|cover\s+letter)\b/i;
+const ACTION_AM_NOUN = /(ደብዳቤ|ማመልከቻ|አቤቱታ)/;
+const ACTION_AM_VERB = /(ጻፍ|ፃፍ|አዘጋጅ|ጻፍልኝ|ፃፍልኝ|አዘጋጅልኝ|ጻፍልኝ)/;
+
+/**
+ * Pure, instant intent classification (no network call).
+ * The previous version asked an LLM on every message, which added a full model
+ * round-trip (often 1-2 s) before retrieval even started. Everything that is
+ * not clearly a greeting or a letter request is treated as a question, and the
+ * RAG pipeline already answers "I don't have verified information" when nothing matches.
+ */
+export function classifyIntent(input: string): Intent {
+  const text = (input ?? '').trim();
+  if (!text) return 'unknown';
+  if (GREETING.test(text)) return 'unknown';
+  if (ACTION_EN.test(text) || (ACTION_AM_NOUN.test(text) && ACTION_AM_VERB.test(text))) return 'action';
+  return 'rag';
+}
+
 const RouterState = Annotation.Root({
-  userInput: Annotation<string>({
-    reducer: (x: string, y: string) => y ?? x,
-    default: () => '',
-  }),
-  decision: Annotation<'rag' | 'action' | 'unknown'>({
-    reducer: (x: 'rag' | 'action' | 'unknown', y: 'rag' | 'action' | 'unknown') => y ?? x,
-    default: () => 'unknown',
-  }),
-  reasoning: Annotation<string>({
-    reducer: (x: string, y: string) => y ?? x,
-    default: () => '',
-  }),
+  userInput: Annotation<string>({ reducer: (x: string, y: string) => y ?? x, default: () => '' }),
+  decision: Annotation<Intent>({ reducer: (x: Intent, y: Intent) => y ?? x, default: () => 'unknown' }),
+  reasoning: Annotation<string>({ reducer: (x: string, y: string) => y ?? x, default: () => '' }),
 });
 
 @Injectable()
 export class RouterAgent {
-  private model: ChatGoogleGenerativeAI;
-
-  constructor() {
-    this.model = new ChatGoogleGenerativeAI({
-      model: 'gemini-3.5-flash',
-      apiKey: process.env.GEMINI_API_KEY,
-      temperature: 0,
-    });
+  classify(input: string): Intent {
+    return classifyIntent(input);
   }
 
-  // 2. DEFINE THE NODE
   async routerNode(state: typeof RouterState.State): Promise<Partial<typeof RouterState.State>> {
-    console.log(`\n🤖 Router is thinking about: "${state.userInput}"`);
-
-    const routerSchema = z.object({
-      decision: z.enum(['rag', 'action', 'unknown']).describe("Choose 'rag' for factual questions, 'action' for document creation, 'unknown' for greetings."),
-      reasoning: z.string().describe("A brief explanation of why you chose this decision."),
-    });
-
-    const structuredModel = this.model.withStructuredOutput(routerSchema);
-
-    const prompt = `
-  You are the Router Agent for an Ethiopian Government Services AI assistant.
-  The user may write in English or Amharic. Classify their message into exactly one category:
-
-  - "rag": questions about government services, such as fees, requirements, documents needed,
-    office locations, processing time, or how to apply (passport, Kebele ID, business license,
-    driving license, birth certificate, etc.).
-  - "action": requests to write, draft, or create a document or letter
-    (for example an application letter or a complaint letter).
-  - "unknown": greetings, thanks, small talk, or anything unrelated to government services.
-
-  User Input: "${state.userInput}"
-`;
-
-    try {
-      // Try the real AI model
-      const result = await structuredModel.invoke(prompt);
-      console.log(`✅ Router Decision: ${result.decision.toUpperCase()} (Reason: ${result.reasoning})`);
-      return { decision: result.decision, reasoning: result.reasoning };
-      
-    }catch (error) {
-  console.error('❌ Router error:', error);
-  console.warn('⚠️ LangChain Router API failed. Using MOCK keyword routing to keep development moving.');
-      
-      // 🚀 DEVELOPMENT MOCK FALLBACK: Simple, reliable keyword matching
-      const lowerInput = state.userInput.toLowerCase();
-      let mockDecision: 'rag' | 'action' | 'unknown' = 'unknown';
-      let mockReasoning = 'Mock fallback due to API error';
-
-      if (lowerInput.includes('write') || lowerInput.includes('draft') || lowerInput.includes('letter') || lowerInput.includes('create') || lowerInput.includes('ስጠኝ') || lowerInput.includes('ጻፍ')) {
-        mockDecision = 'action';
-        mockReasoning = 'Mock: Detected document creation request.';
-      } else if (lowerInput.includes('how much') || lowerInput.includes('requirement') || lowerInput.includes('passport') || lowerInput.includes('fee') || lowerInput.includes('license') || lowerInput.includes('ስንት') || lowerInput.includes('መስፈርት')) {
-        mockDecision = 'rag';
-        mockReasoning = 'Mock: Detected factual question about services.';
-      } else if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('thank') || lowerInput.includes('ሰላም')) {
-        mockDecision = 'unknown';
-        mockReasoning = 'Mock: Detected greeting or casual chat.';
-      }
-
-      console.log(`✅ Mock Router Decision: ${mockDecision.toUpperCase()} (${mockReasoning})`);
-      return { decision: mockDecision, reasoning: mockReasoning };
-    }
+    const decision = classifyIntent(state.userInput);
+    console.log(`🧭 Router: ${decision.toUpperCase()} for "${state.userInput}"`);
+    return { decision, reasoning: 'Rule-based router (no LLM call)' };
   }
 
-  // 3. DEFINE THE GRAPH
+  // Kept so AppService.testRouter() keeps working
   compile() {
-    const workflow = new StateGraph(RouterState)
+    return new StateGraph(RouterState)
       .addNode('router', this.routerNode.bind(this))
       .addEdge(START, 'router')
-      .addConditionalEdges(
-        'router',
-        (state: typeof RouterState.State) => state.decision,
-        {
-          rag: END,
-          action: END,
-          unknown: END,
-        }
-      );
-
-    return workflow.compile();
+      .addConditionalEdges('router', (s: typeof RouterState.State) => s.decision, {
+        rag: END,
+        action: END,
+        unknown: END,
+      })
+      .compile();
   }
 }

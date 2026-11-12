@@ -5,9 +5,11 @@ import { RagAgent } from './rag.agent';
 import { ActionAgent } from './action.agent';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { ChatGraph } from './chat.graph';
+import { ChatStreamController } from './chat-stream.controller';
 
 @Module({
   imports: [forwardRef(() => KnowledgeModule)],
+  controllers: [ChatStreamController],
   providers: [AiService, RouterAgent, ActionAgent, RagAgent, ChatGraph],
   exports: [AiService, RouterAgent, ActionAgent, RagAgent, ChatGraph],
 })

@@ -1,71 +1,85 @@
 import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  Headers,
-  Logger,
-  UnauthorizedException,
+  BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { AdminGuard } from './admin.guard';
 
 @Controller('admin')
-export class AdminController {
-  private readonly logger = new Logger(AdminController.name);
-
-  constructor(private readonly adminService: AdminService) {}
+export class AdminAuthController {
+  constructor(private readonly admin: AdminService) {}
 
   @Post('login')
-  async login(@Body() body: { email: string; password: string }) {
-    const { email, password } = body;
+  async login(@Body() body: { email?: string; password?: string }) {
+    if (!body?.email || !body?.password) throw new BadRequestException('Email and password are required');
+    return this.admin.validateAdmin(body.email, body.password);
+  }
+}
 
-    if (!email || !password) {
-      throw new UnauthorizedException('Email and password are required');
-    }
+@Controller('admin')
+@UseGuards(AdminGuard)
+export class AdminController {
+  constructor(private readonly admin: AdminService) {}
 
-    const result = await this.adminService.validateAdmin(email, password);
-    return result;
+  // ---- dashboards
+  @Get('stats') stats() { return this.admin.getStats(); }
+  @Get('analytics') analytics() { return this.admin.getAnalytics(); }
+  @Get('scraper-logs') logs(@Query('limit') limit?: string) { return this.admin.getScraperLogs(Number(limit) || 30); }
+
+  // ---- review queue
+  @Get('pending') pending() { return this.admin.getPending(); }
+
+  @Post('approve/:id')
+  approve(@Param('id') id: string, @Body() body: { edits?: any }) {
+    return this.admin.approveFact(id, body?.edits);
   }
 
-  @Get('pending-facts')
-  async getPendingFacts(@Headers('authorization') authHeader: string) {
-    this.verifyAdmin(authHeader);
-    return await this.adminService.getPendingFacts();
+  @Post('reject/:id')
+  reject(@Param('id') id: string) {
+    return this.admin.rejectFact(id);
   }
 
-  @Post('approve/:factId')
-  async approveFact(
-    @Headers('authorization') authHeader: string,
-    @Body() body: { factId: string },
-  ) {
-    this.verifyAdmin(authHeader);
-    return await this.adminService.approveFact(body.factId);
+  @Post('bulk')
+  bulk(@Body() body: { action?: string; ids?: string[] }) {
+    if (!Array.isArray(body?.ids) || !body.ids.length || body.ids.length > 100) throw new BadRequestException('Provide 1-100 ids');
+    if (body.action !== 'approve' && body.action !== 'reject') throw new BadRequestException('action must be approve or reject');
+    return this.admin.bulk(body.action, body.ids);
   }
 
-  @Post('reject/:factId')
-  async rejectFact(
-    @Headers('authorization') authHeader: string,
-    @Body() body: { factId: string },
-  ) {
-    this.verifyAdmin(authHeader);
-    return await this.adminService.rejectFact(body.factId);
+  // ---- knowledge base
+  @Get('knowledge')
+  knowledge(@Query() q: { status?: string; serviceId?: string; q?: string; page?: string }) {
+    return this.admin.listKnowledge(q);
   }
 
-  @Get('scraper-logs')
-  async getScraperLogs(
-    @Headers('authorization') authHeader: string,
-  ) {
-    this.verifyAdmin(authHeader);
-    return await this.adminService.getScraperLogs();
+  @Post('knowledge')
+  createKnowledge(@Body() body: any) {
+    return this.admin.createKnowledge(body);
   }
 
-  private verifyAdmin(authHeader: string) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid authorization header');
-    }
+  @Patch('knowledge/:id')
+  updateKnowledge(@Param('id') id: string, @Body() body: any) {
+    return this.admin.updateKnowledge(id, body);
+  }
 
-    // In a production app, you'd verify the JWT token here
-    // For now, we trust that if they have a valid Supabase token, they're authenticated
-    // The frontend will send the token from the login response
+  @Post('knowledge/:id/archive')
+  archive(@Param('id') id: string) {
+    return this.admin.setStatus(id, 'archived');
+  }
+
+  @Post('knowledge/:id/restore')
+  restore(@Param('id') id: string) {
+    return this.admin.setStatus(id, 'approved');
+  }
+
+  // ---- sources + scraper
+  @Get('sources') sources() { return this.admin.listSources(); }
+  @Post('sources') createSource(@Body() body: any) { return this.admin.createSource(body); }
+  @Patch('sources/:id') updateSource(@Param('id') id: string, @Body() body: any) { return this.admin.updateSource(id, body); }
+  @Delete('sources/:id') deleteSource(@Param('id') id: string) { return this.admin.deleteSource(id); }
+  @Post('sources/test') testSource(@Body() body: any) { return this.admin.testSource(body); }
+
+  @Post('scraper/run')
+  run(@Body() body: { sourceId?: string; types?: string[] }) {
+    return this.admin.runScraper(body);
   }
 }
