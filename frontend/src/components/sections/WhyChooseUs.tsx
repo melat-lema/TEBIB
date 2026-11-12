@@ -1,97 +1,203 @@
-// frontend/src/components/sections/WhyChooseUs.tsx
-import { motion } from 'framer-motion';
-import { Brain, Shield, Globe, Zap } from 'lucide-react';
+// src/components/sections/WhyChooseUs.tsx
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useInView, useScroll, useTransform } from 'framer-motion';
+import { ShieldCheck, FileSearch, UserCheck, Rocket, Languages, HelpCircle } from 'lucide-react';
+import '../../styles/landing.css';
 
-const features = [
-  {
-    icon: Brain,
-    title: 'AI-Powered Answers',
-    titleAm: 'በAI የተደገፉ መልሶች',
-    description: 'Get instant, accurate responses to your government service questions in seconds.',
-    color: 'from-blue-500 to-cyan-500'
-  },
-  {
-    icon: Shield,
-    title: 'Verified Information',
-    titleAm: 'የተረጋገ መረጃ',
-    description: 'All information is sourced from official government websites and updated regularly.',
-    color: 'from-emerald-500 to-green-500'
-  },
-  {
-    icon: Globe,
-    title: 'Bilingual Support',
-    titleAm: 'ድር ቋንቋ ድፍ',
-    description: 'Seamlessly switch between English and Amharic for your convenience.',
-    color: 'from-purple-500 to-pink-500'
-  }
+// ---------------------------------------------------------------- 1. bilingual chat demo
+const demo = {
+  en: { q: 'How much is a new passport?', a: 'A new or renewed passport costs 5,000 ETB. Confirm with ICS before you go.', tag: 'EN' },
+  am: { q: 'አዲስ ፓስፖርት ስንት ነው?', a: 'አዲስ ወይም የታደሰ ፓስፖርት 5,000 ብር ነው። ከመሄድዎ በፊት ከICS ያረጋግጡ።', tag: 'አማ' },
+};
+
+function useTyped(text: string, active: boolean, speed = 22) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    if (!active) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return setN(text.length);
+    const id = setInterval(() => setN((v) => (v >= text.length ? v : v + 1)), speed);
+    return () => clearInterval(id);
+  }, [text, active, speed]);
+  return text.slice(0, n);
+}
+
+function ChatDemo({ active }: { active: boolean }) {
+  const [lang, setLang] = useState<'en' | 'am'>('en');
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setLang((l) => (l === 'en' ? 'am' : 'en')), 7000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  const d = demo[lang];
+  const answer = useTyped(d.a, active);
+  const done = answer.length === d.a.length;
+
+  return (
+    <div className="relative mt-8 space-y-3">
+      <AnimatePresence mode="wait">
+        <motion.div key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="space-y-3">
+          <div className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-[#b08d57] px-4 py-2.5 text-sm font-medium text-white">
+            <span className="font-ethiopic">{d.q}</span>
+          </div>
+          <div className="w-fit max-w-[92%] rounded-2xl rounded-bl-md border border-white/10 bg-white/10 px-4 py-3 text-sm leading-relaxed text-gray-100">
+            <span className={`font-ethiopic ${done ? '' : 'tb-caret'}`}>{answer}</span>
+            {done && (
+              <span className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-[#e6cfa0]">
+                <ShieldCheck className="h-3.5 w-3.5" /> Verified fact · reviewed by an admin
+              </span>
+            )}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="absolute -top-[4.6rem] right-0 flex rounded-full border border-white/15 bg-white/5 p-1 text-xs font-semibold">
+        {(['en', 'am'] as const).map((l) => (
+          <button key={l} onClick={() => setLang(l)} className={`rounded-full px-3 py-1 transition-colors ${lang === l ? 'bg-[#b08d57] text-white' : 'text-gray-400 hover:text-white'}`}>
+            {demo[l].tag}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- 2. pipeline that fills as you scroll
+const pipeline = [
+  { Icon: FileSearch, title: 'Collected from official sources', text: 'Government websites and announcement channels are checked on a schedule.' },
+  { Icon: UserCheck, title: 'Reviewed by a person', text: 'Every extracted fact is compared with its source quote before it is approved.' },
+  { Icon: Rocket, title: 'Published to you', text: 'Only approved facts appear on service pages and in chat answers.' },
 ];
 
-const WhyChooseUs = () => {
+function Pipeline() {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 80%', 'end 55%'] });
+  const height = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
+
   return (
-    <section className="py-24 bg-gradient-to-b from-gray-50 to-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-5xl font-bold text-gray-900 mb-4">
-            Why Choose Tebib
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Making government services accessible, efficient, and stress-free for everyone
-          </p>
-        </motion.div>
+    <div ref={ref} className="relative mt-8 pl-12">
+      <div className="absolute bottom-2 left-[1.15rem] top-2 w-0.5 rounded bg-gray-200" />
+      <motion.div style={{ height }} className="absolute left-[1.15rem] top-2 w-0.5 rounded bg-[#b08d57]" />
+      <ul className="space-y-8">
+        {pipeline.map(({ Icon, title, text }, i) => (
+          <li key={title} className="relative">
+            <span className="absolute -left-12 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#b08d57] bg-white text-[#b08d57]">
+              <Icon className="h-[18px] w-[18px]" />
+            </span>
+            <p className="font-semibold text-gray-900">{title}</p>
+            <p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p>
+            {i === 1 && <span className="mt-2 inline-block rounded-full bg-[#b08d57]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#8c6b42]">Fees and requirements are never auto-published</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-          {/* Left Card - Tilted */}
-          <motion.div
-            initial={{ opacity: 0, x: -50, rotate: -6 }}
-            whileInView={{ opacity: 1, x: 0, rotate: -3 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="hidden md:block"
-          >
-            <FeatureCard {...features[0]} />
-          </motion.div>
+// ---------------------------------------------------------------- 3. counters
+function Counter({ to, label }: { to: number; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-20%' });
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return setV(to);
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min((t - start) / 1200, 1);
+      setV(Math.round(to * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, to]);
+  return (
+    <div ref={ref}>
+      <div className="text-5xl font-semibold tracking-tight text-gray-900">{v}</div>
+      <div className="mt-1 text-sm font-medium text-gray-500">{label}</div>
+    </div>
+  );
+}
 
-          {/* Middle Card - Straight & Prominent */}
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="md:scale-110"
-          >
-            <FeatureCard {...features[1]} isProminent />
-          </motion.div>
+// ---------------------------------------------------------------- section
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
+const item = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } } };
 
-          {/* Right Card - Tilted */}
-          <motion.div
-            initial={{ opacity: 0, x: 50, rotate: 6 }}
-            whileInView={{ opacity: 1, x: 0, rotate: 3 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="hidden md:block"
-          >
-            <FeatureCard {...features[2]} />
-          </motion.div>
+export default function WhyChooseUs() {
+  const section = useRef<HTMLElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const chatActive = useInView(chatRef, { margin: '-15%' });
+
+  // The one scroll-driven moment: the word ጠቢብ drifts sideways behind the cards
+  const { scrollYProgress } = useScroll({ target: section, offset: ['start end', 'end start'] });
+  const x = useTransform(scrollYProgress, [0, 1], ['6%', '-28%']);
+
+  return (
+    <section ref={section} className="relative overflow-hidden bg-[#faf7f1] py-24">
+      <div className="tb-dots pointer-events-none absolute inset-0 opacity-60" />
+      <motion.div
+        aria-hidden
+        style={{ x }}
+        className="font-ethiopic pointer-events-none absolute -top-6 left-0 select-none whitespace-nowrap text-[15rem] font-bold leading-none text-transparent [-webkit-text-stroke:2px_rgba(176,141,87,0.22)]"
+      >
+        ጠቢብ ጠቢብ ጠቢብ
+      </motion.div>
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl">
+          <h2 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">Built so you can trust the number you read.</h2>
+          <p className="mt-3 text-base text-gray-600">Government information changes. Tebib shows where each answer came from and when it was last confirmed.</p>
         </div>
+
+        <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10%' }} className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* A: bilingual chat (dark) */}
+          <motion.div variants={item} ref={chatRef} className="relative overflow-hidden rounded-[2rem] bg-[#1d1a16] p-8 text-white lg:col-span-7 lg:p-10">
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#b08d57]/20 blur-3xl" />
+            <div className="relative">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#b08d57]/20 text-[#e6cfa0]">
+                <Languages className="h-5 w-5" />
+              </span>
+              <h3 className="mt-5 text-xl font-semibold">Ask in Amharic or English</h3>
+              <p className="mt-2 max-w-md text-sm text-gray-400">Same question, same verified answer, in the language you think in.</p>
+              <ChatDemo active={chatActive} />
+            </div>
+          </motion.div>
+
+          {/* B: pipeline */}
+          <motion.div variants={item} className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
+            <h3 className="text-xl font-semibold text-gray-900">Every answer has a trail</h3>
+            <p className="mt-2 text-sm text-gray-500">How a fact reaches you.</p>
+            <Pipeline />
+          </motion.div>
+
+          {/* C: numbers */}
+          <motion.div variants={item} className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
+            <div className="grid grid-cols-2 gap-6">
+              <Counter to={5} label="core services covered" />
+              <Counter to={2} label="languages, switch anytime" />
+            </div>
+            <p className="mt-8 border-t border-gray-100 pt-5 text-sm leading-relaxed text-gray-600">
+              Each service page shows a <span className="font-semibold text-gray-900">Last verified</span> date, so you know how fresh the information is.
+            </p>
+          </motion.div>
+
+          {/* D: honest about gaps */}
+          <motion.div variants={item} className="relative overflow-hidden rounded-[2rem] border border-[#b08d57]/30 bg-gradient-to-br from-[#b08d57] to-[#8c6b42] p-8 text-white lg:col-span-7 lg:p-10">
+            <HelpCircle className="absolute -bottom-6 -right-4 h-44 w-44 text-white/10" strokeWidth={1.2} />
+            <div className="relative max-w-lg">
+              <h3 className="text-xl font-semibold">It says so when it doesn't know</h3>
+              <p className="mt-2 text-sm text-white/80">If nothing verified matches your question, Tebib tells you and points you to the right office, instead of guessing.</p>
+              <div className="mt-6 w-fit max-w-full rounded-2xl rounded-bl-md bg-white/15 px-4 py-3 text-sm leading-relaxed backdrop-blur">
+                I don't have verified information about that. Please check directly with the relevant government office.
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
-};
-
-const FeatureCard = ({ icon: Icon, title, titleAm, description, color, isProminent = false }: any) => (
-  <div className={`bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border-2 ${isProminent ? 'border-[#b08d57] scale-105' : 'border-gray-100'}`}>
-    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center mb-6`}>
-      <Icon className="w-8 h-8 text-white" />
-    </div>
-    <h3 className="text-2xl font-bold text-gray-900 mb-2">{title}</h3>
-    <p className="text-gray-600 mb-4">{titleAm}</p>
-    <p className="text-gray-600 leading-relaxed">{description}</p>
-  </div>
-);
-
-export default WhyChooseUs;
+}

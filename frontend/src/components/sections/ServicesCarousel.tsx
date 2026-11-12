@@ -1,59 +1,69 @@
-// frontend/src/components/sections/ServicesCarousel.tsx
-import { motion } from 'framer-motion';
-import { FileText, Shield, Building, Car, UserCheck, Award } from 'lucide-react';
+// src/components/sections/ServicesCarousel.tsx
+import { Link } from 'react-router-dom';
+import { Plane, Fingerprint, Store, Car, Baby, ArrowUpRight } from 'lucide-react';
+import '../../styles/landing.css';
 
 const services = [
-  { icon: FileText, name: 'Passport Services', nameAm: 'ስፖርት', category: 'Immigration' },
-  { icon: Shield, name: 'Kebele ID', nameAm: 'የቀበሌ መታወቂያ', category: 'Civil Registration' },
-  { icon: Building, name: 'Business License', nameAm: 'የንግድ ፈቃድ', category: 'Business' },
-  { icon: Car, name: 'Driving License', nameAm: 'የመን ፈቃድ', category: 'Transport' },
-  { icon: UserCheck, name: 'Birth Certificate', nameAm: 'የልደት ምስር', category: 'Civil Registration' },
-  { icon: Award, name: 'Trade License', nameAm: 'የንግድ ቃድ', category: 'Business' },
+  { Icon: Plane, name: 'Passport', am: 'ፓስፖርት', glyph: 'ፓ', covers: 'New, renewal, urgent and lost passports', tags: ['Fees', 'Documents', 'Online portal'] },
+  { Icon: Fingerprint, name: 'Kebele ID', am: 'የቀበሌ መታወቂያ', glyph: 'ቀ', covers: 'Local ID and the new digital ID (Fayda)', tags: ['Requirements', 'Fayda'] },
+  { Icon: Store, name: 'Business License', am: 'የንግድ ፈቃድ', glyph: 'ን', covers: 'Registering and licensing a business', tags: ['e-Trade', 'Renewal'] },
+  { Icon: Car, name: 'Driving License', am: 'የመንጃ ፈቃድ', glyph: 'መ', covers: 'Tests, medical check and fees', tags: ['Tests', 'Fees'] },
+  { Icon: Baby, name: 'Birth Certificate', am: 'የልደት ምስክር ወረቀት', glyph: 'ል', covers: 'Registering a birth and getting a certificate', tags: ['Deadlines', 'Documents'] },
 ];
 
-const ServicesCarousel = () => {
+function ServiceCard({ s }: { s: (typeof services)[number] }) {
   return (
-    <section className="py-20 bg-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-        <h2 className="text-4xl font-bold text-center text-gray-900">
-          Our Services
-        </h2>
-        <p className="text-gray-600 text-center mt-4">
-          Comprehensive government services at your fingertips
-        </p>
-      </div>
+    <Link
+      to="/register"
+      className="tb-service-card group relative block h-[16.5rem] w-[17.5rem] overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-6 outline-none transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#b08d57]/15 focus-visible:-translate-y-2"
+    >
+      {/* the first Ge'ez letter of the service name, as a watermark */}
+      <span
+        aria-hidden
+        className="font-ethiopic pointer-events-none absolute -bottom-10 -right-3 select-none text-[8.5rem] font-bold leading-none text-[#b08d57]/10 transition-all duration-500 group-hover:-translate-y-2 group-hover:text-[#b08d57]/20"
+      >
+        {s.glyph}
+      </span>
 
-      {/* Infinite Scroll Container */}
-      <div className="relative">
-        <motion.div
-          className="flex gap-8"
-          animate={{ x: [0, -1000] }}
-          transition={{
-            repeat: Infinity,
-            repeatType: "loop",
-            duration: 20,
-            ease: "linear"
-          }}
-        >
-          {/* Double the services for seamless loop */}
-          {[...services, ...services, ...services].map((service, index) => (
-            <motion.div
-              key={index}
-              className="flex-shrink-0 w-80 bg-gradient-to-br from-gray-50 to-white border-2 border-gray-100 rounded-2xl p-8 hover:border-[#b08d57] hover:shadow-xl transition-all duration-300 cursor-pointer group"
-              whileHover={{ y: -10 }}
-            >
-              <div className="bg-[#b08d57]/10 w-16 h-16 rounded-xl flex items-center justify-center mb-6 group-hover:bg-[#b08d57] transition-colors duration-300">
-                <service.icon className="w-8 h-8 text-[#b08d57] group-hover:text-white transition-colors duration-300" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">{service.name}</h3>
-              <p className="text-gray-600 mb-4">{service.nameAm}</p>
-              <span className="text-sm text-[#b08d57] font-medium">{service.category}</span>
-            </motion.div>
+      <div className="relative flex h-full flex-col">
+        <div className="flex items-start justify-between">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-900 text-[#e6cfa0] transition-colors duration-500 group-hover:bg-[#b08d57] group-hover:text-white">
+            <s.Icon className="h-6 w-6" strokeWidth={1.7} />
+          </span>
+          <ArrowUpRight className="h-5 w-5 text-gray-300 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#b08d57]" />
+        </div>
+
+        <h3 className="mt-5 text-lg font-semibold tracking-tight text-gray-900">{s.name}</h3>
+        <p className="font-ethiopic mt-0.5 text-sm font-medium text-[#b08d57]">{s.am}</p>
+        <p className="mt-2.5 max-w-[14rem] text-[13px] leading-relaxed text-gray-500">{s.covers}</p>
+
+        <div className="mt-auto flex flex-wrap gap-1.5">
+          {s.tags.map((t) => (
+            <span key={t} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+              {t}
+            </span>
           ))}
-        </motion.div>
+        </div>
       </div>
-    </section>
+    </Link>
   );
-};
+}
+
+const ServicesCarousel = () => (
+  <section id="services" className="overflow-hidden bg-white py-24">
+    <div className="mx-auto mb-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <h2 className="max-w-xl text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">Five services, answered properly.</h2>
+      <p className="mt-3 max-w-lg text-base text-gray-600">Pick one to see its fees, documents and steps. Hover the row to stop it.</p>
+    </div>
+
+    <div className="tb-marquee-wrap py-4">
+      <div className="tb-marquee">
+        {[...services, ...services, ...services, ...services].map((s, i) => (
+          <ServiceCard key={i} s={s} />
+        ))}
+      </div>
+    </div>
+  </section>
+);
 
 export default ServicesCarousel;

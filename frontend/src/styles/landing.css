@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
+
+/* Landing typography: Manrope for Latin text, Noto Sans Ethiopic for Amharic (the browser picks per character) */
+.tb-font { font-family: 'Manrope', 'Noto Sans Ethiopic', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.font-ethiopic { font-family: 'Noto Sans Ethiopic', 'Manrope', system-ui, sans-serif; }
+
+/* ---------- services marquee: pauses on hover/focus, stops for reduced motion ---------- */
+.tb-marquee-wrap {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.tb-marquee { display: flex; width: max-content; animation: tb-scroll 46s linear infinite; }
+.tb-marquee > * { margin-right: 1.5rem; flex-shrink: 0; }
+.tb-marquee-wrap:hover .tb-marquee,
+.tb-marquee-wrap:focus-within .tb-marquee { animation-play-state: paused; }
+@keyframes tb-scroll { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .tb-marquee { animation: none; }
+  .tb-marquee-wrap { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+}
+
+.tb-service-card { position: relative; isolation: isolate; }
+.tb-service-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px;
+  background: linear-gradient(135deg, #b08d57, transparent 45%, #b08d57);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity .35s ease; z-index: -1;
+}
+.tb-service-card:hover::before, .tb-service-card:focus-visible::before { opacity: 1; }
+
+.tb-dots { background-image: radial-gradient(rgba(176,141,87,.28) 1px, transparent 1px); background-size: 22px 22px; }
+.tb-caret::after { content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 2px; background: #b08d57; vertical-align: -0.12em; animation: tb-blink 1s steps(1) infinite; }
+@keyframes tb-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tb-caret::after { animation: none; } }

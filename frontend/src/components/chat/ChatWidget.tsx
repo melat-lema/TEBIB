@@ -1,112 +1,178 @@
 // src/components/chat/ChatWidget.tsx
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, Loader2, Bot, User, AlertCircle } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { API_URL } from '../../lib/config';
+
+interface Source {
+  text: string;
+  source: string;
+  url?: string | null;
+  verifiedAt?: string | null;
+}
 interface Message {
   id: string;
   role: 'user' | 'ai';
   text: string;
-  sources?: { text: string; source: string }[];
+  sources?: Source[];
   isError?: boolean;
+  streaming?: boolean;
 }
 
+const copy = {
+  en: {
+    greeting: 'Hello! I am your Tebib AI assistant. Ask me anything about Ethiopian government services, fees, or requirements.',
+    title: 'Tebib AI Assistant',
+    subtitle: 'Answers come from reviewed information',
+    placeholder: 'Ask about passports, IDs, fees...',
+    thinking: 'Searching verified information…',
+    sources: 'Sources',
+    verified: 'Verified',
+    disclaimer: 'AI can make mistakes. Verify important info with official offices.',
+    error: "I couldn't reach the server. Please check your connection and try again.",
+    newChat: 'New chat',
+  },
+  am: {
+    greeting: 'ሰላም! እኔ የጠቢብ AI ረዳት ነኝ። ስለ ኢትዮጵያ መንግስት አገልግሎቶች፣ ክፍያዎች ወይም መስፈርቶች ማንኛውንም ይጠይቁኝ።',
+    title: 'የጠቢብ AI ረዳት',
+    subtitle: 'መልሶች ከተመረመረ መረጃ የተወሰዱ ናቸው',
+    placeholder: 'ስለ ፓስፖርት፣ መታወቂያ፣ ክፍያ ይጠይቁ...',
+    thinking: 'የተረጋገጠ መረጃ በመፈለግ ላይ…',
+    sources: 'ምንጮች',
+    verified: 'የተረጋገጠ',
+    disclaimer: 'AI ሊሳሳት ይችላል። አስፈላጊ መረጃን ከኦፊሴላዊ መስሪያ ቤቶች ያረጋግጡ።',
+    error: 'ከአገልጋዩ ጋር መገናኘት አልተቻለም። እባክዎ ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።',
+    newChat: 'አዲስ ውይይት',
+  },
+};
+
 export default function ChatWidget({ lang = 'en' }: { lang?: 'en' | 'am' }) {
+  const t = copy[lang];
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'ai',
-      text: 'Hello! I am your Tebib AI assistant. Ask me anything about Ethiopian government services, fees, or requirements.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
- const API_URL = import.meta.env.VITE_API_URL;
-  // Auto-scroll to bottom when new messages arrive
+  const endRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, isOpen]);
 
-  // Listen for "Open Chat" commands from other pages (Contextual Chat)
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const patchLast = (patch: Partial<Message>) =>
+    setMessages((prev) => prev.map((m, i) => (i === prev.length - 1 ? { ...m, ...patch } : m)));
+  const appendLast = (text: string) =>
+    setMessages((prev) => prev.map((m, i) => (i === prev.length - 1 ? { ...m, text: m.text + text } : m)));
+
+  const send = useCallback(
+    async (override?: string) => {
+      const text = (override ?? input).trim();
+      if (!text || isLoading) return;
+
+      setInput('');
+      setIsLoading(true);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'user', text },
+        { id: crypto.randomUUID(), role: 'ai', text: '', streaming: true },
+      ]);
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const res = await fetch(`${API_URL}/chat/stream`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ message: text, language: lang, sessionId }),
+        });
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let failed = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() ?? '';
+
+          for (const frame of frames) {
+            const line = frame.trim();
+            if (!line.startsWith('data:')) continue;
+            const evt = JSON.parse(line.slice(5).trim());
+            if (evt.type === 'token') appendLast(evt.text);
+            else if (evt.type === 'done') patchLast({ sources: evt.sources, streaming: false });
+            else if (evt.type === 'error') {
+              failed = true;
+              patchLast({ text: evt.message, isError: true, streaming: false });
+            }
+          }
+        }
+        if (!failed) patchLast({ streaming: false });
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Chat error:', error);
+          patchLast({ text: t.error, isError: true, streaming: false });
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [input, isLoading, lang, sessionId, t.error],
+  );
+
+  // "Open chat" from other pages. detail: { message?: string, send?: boolean }
+  const sendRef = useRef(send);
+  sendRef.current = send;
   useEffect(() => {
-    const handleOpenChat = (event: Event) => {
-      const customEvent = event as CustomEvent;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail ?? {};
       setIsOpen(true);
-      if (customEvent.detail?.message) {
-        setInput(customEvent.detail.message);
+      if (detail.message) {
+        if (detail.send) setTimeout(() => sendRef.current(detail.message), 50);
+        else setInput(detail.message);
       }
     };
-    window.addEventListener('open-chat', handleOpenChat);
-    return () => window.removeEventListener('open-chat', handleOpenChat);
+    window.addEventListener('open-chat', handler);
+    return () => window.removeEventListener('open-chat', handler);
   }, []);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = { id: Date.now().toString(), role: 'user', text: input };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      // 1. Connect to Backend
-           const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch(`${API_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ message: userMessage.text, language: lang, sessionId }),
-      });
-
-      // 2. Handle Network/Server Errors
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const data = await response.json();
-
-      // 3. Handle API Logic Errors
-      if (!data.success) {
-        throw new Error(data.response || 'Failed to get response');
-      }
-
-      // 4. Add AI Response
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        text: data.response,
-        sources: data.sources,
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-
-    } catch (error) {
-      console.error('Chat error:', error);
-      
-      // 5. Graceful Error Handling (Show a nice error bubble in chat)
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        text: "I'm having trouble connecting to the server. Please make sure the backend is running and try again.",
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
+  const newChat = () => {
+    abortRef.current?.abort();
+    setMessages([]);
+    setSessionId(crypto.randomUUID());
+    setIsLoading(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      send();
     }
   };
+
+  const bubble = (msg: Message) =>
+    msg.isError
+      ? 'bg-red-50 text-red-700 border border-red-100 rounded-tl-sm flex items-start gap-2'
+      : msg.role === 'user'
+        ? 'bg-[#b08d57] text-white rounded-tr-sm'
+        : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-tl-sm';
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
@@ -117,53 +183,64 @@ export default function ChatWidget({ lang = 'en' }: { lang?: 'en' | 'am' }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            // Responsive sizing for Day 21 prep
-            className="mb-4 w-[calc(100vw-3rem)] sm:w-[380px] h-[60vh] sm:h-[550px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+            className="mb-4 flex h-[60vh] w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:h-[560px] sm:w-[390px]"
           >
-            {/* Header */}
-            <div className="bg-[#b08d57] text-white p-4 flex items-center justify-between flex-shrink-0">
+            <div className="flex flex-shrink-0 items-center justify-between bg-[#b08d57] p-4 text-white">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                  <Bot className="w-5 h-5" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+                  <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">Tebib AI Assistant</h3>
-                  <p className="text-xs text-white/80">Always here to help</p>
+                  <h3 className="text-sm font-semibold">{t.title}</h3>
+                  <p className="text-xs text-white/80">{t.subtitle}</p>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1.5 rounded-lg transition-colors">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={newChat} title={t.newChat} aria-label={t.newChat} className="rounded-lg p-1.5 transition-colors hover:bg-white/20">
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+                <button onClick={() => setIsOpen(false)} aria-label="Close" className="rounded-lg p-1.5 transition-colors hover:bg-white/20">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4">
+              {/* greeting is rendered from the current language, so it changes with the EN/AM toggle */}
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-600">
+                  <Bot className="h-4 w-4" />
+                </div>
+                <div className="max-w-[80%] rounded-2xl rounded-tl-sm border border-gray-100 bg-white p-3 text-sm leading-relaxed text-gray-800 shadow-sm">{t.greeting}</div>
+              </div>
+
               {messages.map((msg) => (
-                <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    msg.role === 'user' ? 'bg-[#b08d57] text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${msg.role === 'user' ? 'bg-[#b08d57] text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
-                  <div className={`max-w-[80%] space-y-2`}>
-                    <div className={`p-3 rounded-2xl text-sm leading-relaxed ${
-                      msg.isError 
-                        ? 'bg-red-50 text-red-700 border border-red-100 rounded-tl-sm flex items-start gap-2' 
-                        : msg.role === 'user' 
-                          ? 'bg-[#b08d57] text-white rounded-tr-sm' 
-                          : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-tl-sm'
-                    }`}>
-                      {msg.isError && <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
-                      {msg.text}
+                  <div className="max-w-[80%] space-y-2">
+                    <div className={`whitespace-pre-wrap rounded-2xl p-3 text-sm leading-relaxed ${bubble(msg)}`}>
+                      {msg.isError && <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />}
+                      {msg.text || (msg.streaming ? <span className="text-gray-400">{t.thinking}</span> : null)}
+                      {msg.streaming && msg.text && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-[#b08d57] align-middle" />}
                     </div>
-                    
-                    {/* Sources */}
-                    {msg.role === 'ai' && !msg.isError && msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Sources:</p>
-                        {msg.sources.slice(0, 2).map((source, idx) => (
-                          <div key={idx} className="text-[11px] text-gray-500 bg-gray-100 p-2 rounded-lg border border-gray-200">
-                            {source.text.substring(0, 80)}...
+
+                    {msg.role === 'ai' && !msg.isError && !!msg.sources?.length && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold tracking-wide text-gray-400">{t.sources}</p>
+                        {msg.sources.slice(0, 3).map((s, i) => (
+                          <div key={i} className="rounded-lg border border-gray-200 bg-gray-100 p-2 text-[11px] leading-snug text-gray-600">
+                            <p className="line-clamp-2">{s.text}</p>
+                            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[10px] text-gray-400">
+                              <span>{s.source}</span>
+                              {s.verifiedAt && <span>· {t.verified} {new Date(s.verifiedAt).toLocaleDateString()}</span>}
+                              {s.url && (
+                                <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-[#b08d57] hover:underline">
+                                  <ExternalLink className="h-2.5 w-2.5" /> link
+                                </a>
+                              )}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -171,58 +248,43 @@ export default function ChatWidget({ lang = 'en' }: { lang?: 'en' | 'am' }) {
                   </div>
                 </div>
               ))}
-              
-              {/* Loading State */}
-              {isLoading && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div className="bg-white border border-gray-100 shadow-sm p-3 rounded-2xl rounded-tl-sm flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 text-[#b08d57] animate-spin" />
-                    <span className="text-sm text-gray-500">AI is thinking...</span>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+              <div ref={endRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 bg-white border-t border-gray-100 flex-shrink-0">
-              <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2 focus-within:ring-2 focus-within:ring-[#b08d57]/20 focus-within:border-[#b08d57] transition-all">
+            <div className="flex-shrink-0 border-t border-gray-100 bg-white p-4">
+              <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 p-2 transition-all focus-within:border-[#b08d57] focus-within:ring-2 focus-within:ring-[#b08d57]/20">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about passports, IDs, fees..."
+                  onKeyDown={onKeyDown}
+                  placeholder={t.placeholder}
                   rows={1}
-                  className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-gray-800 placeholder-gray-400 max-h-24 py-1.5 px-2"
+                  className="max-h-24 flex-1 resize-none border-none bg-transparent px-2 py-1.5 text-sm text-gray-800 outline-none placeholder-gray-400"
                   disabled={isLoading}
                 />
                 <button
-                  onClick={handleSend}
+                  onClick={() => send()}
                   disabled={!input.trim() || isLoading}
-                  className="p-2 bg-[#b08d57] text-white rounded-lg hover:bg-[#8c6b42] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                  aria-label="Send"
+                  className="flex-shrink-0 rounded-lg bg-[#b08d57] p-2 text-white transition-colors hover:bg-[#8c6b42] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-[10px] text-gray-400 text-center mt-2">
-                AI can make mistakes. Verify important info with official offices.
-              </p>
+              <p className="mt-2 text-center text-[10px] text-gray-400">{t.disclaimer}</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Floating Toggle Button */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 bg-[#b08d57] text-white rounded-full shadow-lg hover:shadow-xl hover:bg-[#8c6b42] transition-all flex items-center justify-center"
+        aria-label="Toggle chat"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-[#b08d57] text-white shadow-lg transition-all hover:bg-[#8c6b42] hover:shadow-xl"
       >
-        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+        {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </motion.button>
     </div>
   );
