@@ -75,9 +75,11 @@ export class ChatStreamController {
       const history = this.sessions.get(sessionId) ?? [];
       let finalResponse = '';
       let finalSources: ChatSource[] = [];
+      let decision = 'rag';
 
       for await (const evt of this.chatGraph.stream(message, language, history)) {
         if (clientGone) break;
+        if (evt.type === 'meta') decision = evt.decision;
         if (evt.type === 'done') {
           finalResponse = evt.response;
           finalSources = evt.sources;
@@ -98,6 +100,8 @@ export class ChatStreamController {
             language_used: language,
             session_id: sessionId,
             sources: finalSources,
+            // a question counts as unanswered when it needed facts but nothing verified matched
+            answered: decision !== 'rag' || finalSources.length > 0,
           },
         ]);
         if (error) this.logger.warn(`chat_history insert failed: ${error.message}`);

@@ -694,7 +694,7 @@ ${text.substring(0, 6500)}
           src.name,
           {
             status: 'pending',
-            sourceUrl: itemUrl,
+            sourceUrl: itemUrl.startsWith('http') ? itemUrl : undefined,
             sourcePublishedAt: publishedAt,
             contentHash: factHash,
             category,
@@ -813,6 +813,54 @@ ${text.substring(0, 6500)}
 
     const { trace, rejectedSamples, ...counts } = stats;
     return { source: src.name, status, error: errorMessage, ...counts, rejectedSamples: rejectedSamples.slice(0, 5) };
+  }
+
+  private async loadServices() {
+    const { data } = await supabase.from('services').select('id, name_en');
+    this.services = data ?? [];
+  }
+
+  /**
+   * Turn text an admin pasted (from an official page, a PDF, an office notice, a Telegram post) into
+   * pending facts. Same extraction and validation as the scraper, but it needs no source setup and
+   * no website access, so it works for sources the scraper cannot reach.
+   */
+  async importText(input: { text: string; url?: string | null; serviceId?: string | null; trust?: string | null; title?: string | null }) {
+    await this.loadServices();
+    const text = input.text.replace(/\r/g, '').trim();
+    let host = 'Pasted text';
+    if (input.url) {
+      try {
+        host = new URL(input.url).hostname;
+      } catch {
+        /* keep default */
+      }
+    }
+    const src: SourceRow = {
+      id: 'import',
+      source_type: 'website',
+      name: `Admin import (${host})`,
+      url: input.url || 'https://admin.import',
+      fetch_method: 'html',
+      css_selector: null,
+      service_id: input.serviceId ?? null,
+      last_content_hash: null,
+      trust_level: input.trust === 'secondary' ? 'secondary' : 'official',
+    };
+    const stats = this.emptyStats();
+    const itemUrl = input.url?.startsWith('http') ? input.url : `admin-import:${this.sha(text).slice(0, 12)}`;
+    await this.processItem(src, stats, { text, itemUrl, title: input.title ?? undefined });
+    const outcome = stats.trace[0]?.outcome ?? 'no_facts';
+    return {
+      outcome,
+      found: stats.trace[0]?.found ?? 0,
+      saved: stats.factsSaved,
+      updates: stats.factsUpdates,
+      duplicates: stats.factsDuplicate,
+      rejected: stats.factsRejected,
+      rejectedSamples: stats.rejectedSamples.slice(0, 5),
+      failed: stats.itemsFailed > 0,
+    };
   }
 
   /** Run every active source (optionally only some types, or exactly one source by id) */

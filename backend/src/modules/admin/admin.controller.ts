@@ -78,6 +78,11 @@ export class AdminController {
   @Delete('sources/:id') deleteSource(@Param('id') id: string) { return this.admin.deleteSource(id); }
   @Post('sources/test') testSource(@Body() body: any) { return this.admin.testSource(body); }
 
+  @Post('import')
+  importText(@Body() body: any) {
+    return this.admin.importText(body);
+  }
+
   @Post('scraper/run')
   run(@Body() body: { sourceId?: string; types?: string[] }) {
     return this.admin.runScraper(body);

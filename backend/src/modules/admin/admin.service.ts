@@ -129,7 +129,21 @@ export class AdminService {
       if (c.language_used === 'am') am++;
     }
 
+    const { data: missed } = await supabase
+      .from('chat_history')
+      .select('user_message, language_used')
+      .eq('answered', false)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    const gaps = new Map<string, number>();
+    for (const m of missed ?? []) {
+      const q = String(m.user_message).trim().slice(0, 160);
+      gaps.set(q, (gaps.get(q) ?? 0) + 1);
+    }
+
     return {
+      unanswered: [...gaps.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([question, count]) => ({ question, count })),
       users: users ?? 0,
       chatsTotal: chatsTotal ?? 0,
       chatsLast30: rows.length,
@@ -363,6 +377,23 @@ export class AdminService {
       fetch_method: FETCH_METHODS.includes(body.fetch_method) ? body.fetch_method : null,
       css_selector: typeof body.css_selector === 'string' && body.css_selector.trim() ? body.css_selector.trim() : null,
     });
+  }
+
+  async importText(body: any) {
+    const text = typeof body?.text === 'string' ? body.text.trim() : '';
+    if (text.length < 40) throw new BadRequestException('Paste at least a few sentences of text');
+    if (text.length > 60000) throw new BadRequestException('Text is too long (max 60,000 characters). Split it into parts.');
+    let url: string | null = null;
+    if (typeof body?.url === 'string' && body.url.trim()) {
+      try {
+        const u = new URL(body.url.trim());
+        if (!['http:', 'https:'].includes(u.protocol)) throw new Error();
+        url = u.toString();
+      } catch {
+        throw new BadRequestException('The source link is not a valid http(s) URL');
+      }
+    }
+    return this.scraper.importText({ text, url, serviceId: body?.service_id || null, trust: body?.trust_level, title: typeof body?.title === 'string' ? body.title.slice(0, 160) : null });
   }
 
   runScraper(body: { sourceId?: string; types?: string[] }) {
