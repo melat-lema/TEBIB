@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import img from '../assets/Logo.png';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,7 @@ const translation = {
     googleFailed: 'Google sign-in could not start. Please try again.',
     noAccount: "Don't have an account?",
     createAccount: 'Create one',
+    backHome: 'Back to home',
     loginSuccess: 'Welcome back! Redirecting to dashboard...',
     invalidCredentials: 'Invalid email or password. Please try again.',
   },
@@ -40,6 +41,7 @@ const translation = {
     googleFailed: 'በጉግል መግባት አልተጀመረም። እባክዎ እንደገና ይሞክሩ።',
     noAccount: 'መለያ የለዎትም?',
     createAccount: 'ይመዝገቡ',
+    backHome: 'ወደ መነሻ ገጽ',
     loginSuccess: 'እንኳን ደህና መጡ! ወደ ዳሽቦርድ እየተመራ ነው...',
     invalidCredentials: 'ኢሜይል ወይም የይለፍ ቃል ስህተት ነው። እባክዎ እንደገና ይሞክሩ።',
   },
@@ -83,6 +85,10 @@ export default function Login() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f4f5]">
+      <Link to="/" className="absolute left-6 top-6 z-20 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-[#b08d57]/50 hover:text-[#8c6b42]">
+        <ArrowLeft className="h-4 w-4" /> {t.backHome}
+      </Link>
+
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="absolute right-6 top-6 z-20 flex space-x-1 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
         {(['en', 'am'] as const).map((l) => (
           <button

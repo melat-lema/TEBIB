@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Pencil, Archive, RotateCcw, Search, Loader2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useSearchParams } from 'react-router-dom';
 import { adminFetch } from '../../lib/adminApi';
 import { Card, Chip, Empty, PageTitle, btn, inputCls, statusTone, timeAgo, useServices, CATEGORY_OPTIONS } from './ui';
 
@@ -9,6 +10,8 @@ const blank: Draft = { chunk_text: '', chunk_text_am: '', service_id: '', catego
 
 export default function KnowledgeBase() {
   const services = useServices();
+  const [params] = useSearchParams();
+  const ask = params.get('ask');
   const [status, setStatus] = useState('approved');
   const [serviceId, setServiceId] = useState('');
   const [q, setQ] = useState('');
@@ -59,6 +62,10 @@ export default function KnowledgeBase() {
       toast.error(e.message);
     }
   };
+
+  useEffect(() => {
+    if (ask) setDraft(blank);
+  }, [ask]);
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
@@ -136,6 +143,7 @@ export default function KnowledgeBase() {
               <h2 className="text-lg font-bold text-gray-900">{draft.id ? 'Edit fact' : 'Add fact'}</h2>
               <button onClick={() => setDraft(null)} aria-label="Close"><X className="h-5 w-5 text-gray-500" /></button>
             </div>
+            {ask && !draft.id && <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Question to answer: <b>{ask}</b></p>}
             <label className="mb-1 block text-xs font-semibold text-gray-600">English (one clear fact, name the service in the sentence)</label>
             <textarea className={inputCls} rows={3} value={draft.chunk_text} onChange={(e) => setDraft({ ...draft, chunk_text: e.target.value })} />
             <label className="mb-1 mt-4 block text-xs font-semibold text-gray-600">Amharic</label>

@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Play, FlaskConical, Trash2, Loader2, Power, Link2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { adminFetch } from '../../lib/adminApi';
+import { useSearchParams } from 'react-router-dom';
 import { Card, Chip, Empty, PageTitle, btn, inputCls, timeAgo, useServices } from './ui';
+import ImportCard from './ImportCard';
 
 const blank = { name: '', url: '', source_type: 'website', fetch_method: 'html', css_selector: '', service_id: '', trust_level: 'official', notes: '' };
 
 export default function Sources() {
   const services = useServices();
+  const [, setParams] = useSearchParams();
   const [sources, setSources] = useState<any[] | null>(null);
   const [form, setForm] = useState<typeof blank | null>(null);
   const [test, setTest] = useState<{ id: string; loading: boolean; result?: any } | null>(null);
@@ -93,9 +96,11 @@ export default function Sources() {
 
   return (
     <>
-      <PageTitle title="Sources" hint="Where the scraper looks. Test a source first: if you can't see fees or requirements in the extracted text, the scraper won't find them either.">
+      <PageTitle title="Sources" hint="Add facts by pasting text below, or set up a source for the scraper to watch. Test a source first: if you can't see fees or requirements in its extracted text, the scraper won't find them either.">
         <button className={btn.primary} onClick={() => setForm(blank)}><Plus className="h-4 w-4" /> Add source</button>
       </PageTitle>
+
+      <ImportCard goReview={() => setParams({ tab: 'review' })} />
 
       {form && (
         <Card className="mb-6 p-5">

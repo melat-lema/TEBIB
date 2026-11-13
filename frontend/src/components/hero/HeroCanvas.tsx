@@ -1,38 +1,29 @@
-// src/components/hero/HeroCanvas.tsx
-// Pure three.js scene (no HTML overlays):
-//  - a dark globe with a gold fresnel rim and a glowing atmosphere
-//  - Ethiopia drawn as dense gold points inside an approximate outline
-//  - light pulses travelling along arcs from Addis Ababa to five world cities
-//  - five 3D gold coins (one per service) orbiting the globe, each stamped with a Ge'ez letter
-//  - drifting star dust, pointer parallax, an entrance animation
-//
-//   npm i three @react-three/fiber
-//   npm i -D @types/three
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+
+import { Component, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-const R = 1.3; // globe radius
-const ORBIT = 2.35; // coin orbit radius
+const R = 1.4; // globe radius
+const ORBIT = 2.95; // card orbit radius
+const GOLD = '#c9a064';
 
 const reduced = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-// ------------------------------------------------------------------ geography helpers
+// ------------------------------------------------------------------ geography
 const toVec = (latDeg: number, lonDeg: number, r = R) => {
   const lat = THREE.MathUtils.degToRad(latDeg);
   const lon = THREE.MathUtils.degToRad(lonDeg);
   return new THREE.Vector3(r * Math.cos(lat) * Math.sin(lon), r * Math.sin(lat), r * Math.cos(lat) * Math.cos(lon));
 };
 
-// Approximate outline of Ethiopia as [lon, lat]. Stylised: good enough to read as the country, not a survey.
+// Approximate outline of Ethiopia as [lon, lat]. Stylised: it reads as the country, it is not a survey.
 const ETH: Array<[number, number]> = [
   [36.4, 13.8], [37.1, 14.4], [37.9, 14.9], [38.6, 14.4], [39.1, 14.7], [40.0, 14.5], [40.8, 14.0], [41.4, 13.4],
   [42.2, 12.6], [42.0, 11.8], [42.7, 11.1], [43.1, 10.1], [43.5, 9.3], [44.6, 8.9], [46.0, 8.0], [47.9, 8.0],
   [46.5, 6.4], [45.0, 5.0], [43.2, 4.8], [41.9, 3.95], [40.9, 4.1], [39.7, 3.5], [38.4, 3.6], [37.0, 4.3],
   [36.0, 4.5], [35.3, 5.4], [34.6, 6.1], [34.1, 7.3], [33.3, 8.2], [34.1, 9.6], [34.4, 10.7], [35.3, 11.9], [36.1, 12.8],
 ];
-
 function insideEthiopia(lon: number, lat: number) {
   let inside = false;
   for (let i = 0, j = ETH.length - 1; i < ETH.length; j = i++) {
@@ -42,31 +33,28 @@ function insideEthiopia(lon: number, lat: number) {
   }
   return inside;
 }
-
 const ADDIS = { lat: 9.03, lon: 38.74 };
 const CITIES = [
-  { name: 'London', lat: 51.5, lon: -0.1 },
-  { name: 'New York', lat: 40.7, lon: -74.0 },
-  { name: 'Dubai', lat: 25.2, lon: 55.3 },
-  { name: 'Beijing', lat: 39.9, lon: 116.4 },
-  { name: 'Johannesburg', lat: -26.2, lon: 28.0 },
+  { lat: 51.5, lon: -0.1 }, // London
+  { lat: 40.7, lon: -74.0 }, // New York
+  { lat: 25.2, lon: 55.3 }, // Dubai
+  { lat: 39.9, lon: 116.4 }, // Beijing
+  { lat: -26.2, lon: 28.0 }, // Johannesburg
 ];
 
-// ------------------------------------------------------------------ canvas textures (still WebGL textures)
+// ------------------------------------------------------------------ textures drawn on canvas (still WebGL textures)
 function useFontsReady() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let alive = true;
-    const load = async () => {
+    (async () => {
       try {
-        await document.fonts.load("700 120px 'Noto Sans Ethiopic'");
-        await document.fonts.load("600 40px 'Manrope'");
+        await Promise.all([document.fonts.load("700 60px 'Manrope'"), document.fonts.load("600 40px 'Manrope'"), document.fonts.load("700 80px 'Noto Sans Ethiopic'")]);
       } catch {
-        /* fall back to system fonts */
+        /* system fonts will do */
       }
       if (alive) setReady(true);
-    };
-    load();
+    })();
     return () => {
       alive = false;
     };
@@ -74,76 +62,155 @@ function useFontsReady() {
   return ready;
 }
 
-function makeTexture(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
+function makeTexture(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   draw(canvas.getContext('2d')!);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   return tex;
 }
 
-const glyphTexture = (glyph: string) =>
-  makeTexture(256, 256, (c) => {
-    const g = c.createRadialGradient(110, 100, 10, 128, 128, 140);
-    g.addColorStop(0, '#f3dba5');
-    g.addColorStop(0.6, '#c9a064');
-    g.addColorStop(1, '#8c6b42');
+const haloTexture = () =>
+  makeTexture(512, 512, (c) => {
+    const g = c.createRadialGradient(256, 256, 0, 256, 256, 256);
+    g.addColorStop(0, 'rgba(201,160,100,0.38)');
+    g.addColorStop(0.45, 'rgba(201,160,100,0.14)');
+    g.addColorStop(1, 'rgba(201,160,100,0)');
     c.fillStyle = g;
-    c.beginPath();
-    c.arc(128, 128, 128, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = 'rgba(60,40,12,0.55)';
-    c.lineWidth = 5;
-    c.beginPath();
-    c.arc(128, 128, 112, 0, Math.PI * 2);
-    c.stroke();
-    c.fillStyle = '#2b1d09';
-    c.font = "700 150px 'Noto Sans Ethiopic', sans-serif";
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(glyph, 128, 142);
+    c.fillRect(0, 0, 512, 512);
   });
 
-const labelTexture = (text: string, sub?: string) =>
-  makeTexture(512, 128, (c) => {
-    c.fillStyle = 'rgba(20,16,12,0.72)';
-    const w = 480;
-    const x = (512 - w) / 2;
-    c.beginPath();
-    c.roundRect(x, 20, w, 88, 44);
-    c.fill();
-    c.strokeStyle = 'rgba(230,207,160,0.5)';
+const shadowTexture = () =>
+  makeTexture(256, 256, (c) => {
+    const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+    g.addColorStop(0, 'rgba(70,48,18,0.34)');
+    g.addColorStop(0.6, 'rgba(70,48,18,0.1)');
+    g.addColorStop(1, 'rgba(70,48,18,0)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 256, 256);
+  });
+
+function cardTexture(w: number, h: number, title: string, am: string, glyph: string) {
+  const S = 380;
+  const cw = Math.round(w * S);
+  const ch = Math.round(h * S);
+  return makeTexture(cw, ch, (c) => {
+    const bg = c.createLinearGradient(0, 0, cw, ch);
+    bg.addColorStop(0, '#fffefa');
+    bg.addColorStop(1, '#f1e6cf');
+    c.fillStyle = bg;
+    c.fillRect(0, 0, cw, ch);
+
+    // security-print rings
+    c.strokeStyle = 'rgba(176,141,87,0.13)';
     c.lineWidth = 2;
-    c.stroke();
+    for (let i = 0; i < 7; i++) {
+      c.beginPath();
+      c.arc(cw * 0.86, ch * 0.34, 24 + i * 19, 0, Math.PI * 2);
+      c.stroke();
+    }
+
+    // medallion with the Ge'ez letter
+    const r = Math.min(cw, ch) * 0.115;
+    const mx = cw * 0.15;
+    const my = ch * 0.2;
+    const mg = c.createRadialGradient(mx - r * 0.3, my - r * 0.3, 2, mx, my, r * 1.1);
+    mg.addColorStop(0, '#f3dba5');
+    mg.addColorStop(1, '#a8803f');
+    c.fillStyle = mg;
+    c.beginPath();
+    c.arc(mx, my, r, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#2b1d09';
+    c.font = `700 ${Math.round(r * 1.25)}px 'Noto Sans Ethiopic', sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillStyle = '#ffffff';
-    c.font = "600 40px 'Manrope', system-ui, sans-serif";
-    c.fillText(text, 256, sub ? 52 : 64);
-    if (sub) {
-      c.fillStyle = '#e6cfa0';
-      c.font = "600 28px 'Noto Sans Ethiopic', sans-serif";
-      c.fillText(sub, 256, 86);
-    }
+    c.fillText(glyph, mx, my + r * 0.08);
+
+    // title, shrunk until it fits
+    c.textAlign = 'left';
+    c.textBaseline = 'alphabetic';
+    let size = Math.round(cw * 0.098);
+    do {
+      c.font = `700 ${size}px 'Manrope', system-ui, sans-serif`;
+      size -= 2;
+    } while (c.measureText(title).width > cw * 0.84 && size > 12);
+    c.fillStyle = '#2b1d09';
+    c.fillText(title, cw * 0.08, ch * 0.55);
+
+    c.fillStyle = '#8c6b42';
+    c.font = `600 ${Math.round(cw * 0.062)}px 'Noto Sans Ethiopic', sans-serif`;
+    c.fillText(am, cw * 0.08, ch * 0.55 + cw * 0.095);
+
+    // document lines
+    c.fillStyle = 'rgba(43,29,9,0.1)';
+    for (let i = 0; i < 3; i++) c.fillRect(cw * 0.08, ch * (0.74 + i * 0.065), cw * (0.84 - i * 0.18), 3);
+
+    // tricolour stripe along the bottom
+    const sh = ch * 0.045;
+    ['#078930', '#FCDD09', '#DA121D'].forEach((col, i) => {
+      c.fillStyle = col;
+      c.fillRect((cw / 3) * i, ch - sh, cw / 3 + 1, sh);
+    });
   });
+}
+
+const backTexture = (glyph: string) =>
+  makeTexture(256, 256, (c) => {
+    const g = c.createLinearGradient(0, 0, 256, 256);
+    g.addColorStop(0, '#e3c286');
+    g.addColorStop(1, '#a8803f');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 256, 256);
+    c.fillStyle = 'rgba(43,29,9,0.16)';
+    c.font = "700 220px 'Noto Sans Ethiopic', sans-serif";
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(glyph, 128, 140);
+  });
+
+// ------------------------------------------------------------------ geometry helpers
+function roundedRect(w: number, h: number, r: number) {
+  const x = -w / 2;
+  const y = -h / 2;
+  const s = new THREE.Shape();
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+function roundedPlane(w: number, h: number, r: number) {
+  const g = new THREE.ShapeGeometry(roundedRect(w, h, r), 10);
+  const pos = g.attributes.position;
+  const uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
+  return g;
+}
+function roundedSlab(w: number, h: number, r: number) {
+  const g = new THREE.ExtrudeGeometry(roundedRect(w, h, r), { depth: 0.045, bevelEnabled: true, bevelThickness: 0.014, bevelSize: 0.014, bevelSegments: 4, curveSegments: 10 });
+  g.translate(0, 0, -0.0225);
+  return g;
+}
 
 // ------------------------------------------------------------------ globe
-function useGlobeGeometry() {
-  return useMemo(() => {
-    const positions: number[] = [];
-    const kind: number[] = [];
-    const seed: number[] = [];
-    const push = (v: THREE.Vector3, k: number) => {
-      positions.push(v.x, v.y, v.z);
-      kind.push(k);
-      seed.push(Math.random());
-    };
+function Globe({ speed }: { speed: number }) {
+  const spin = useRef<THREE.Group>(null);
 
-    // world dots (Fibonacci lattice), skipping Ethiopia so it can be drawn denser
-    const N = 5200;
+  const { baseMesh, goldMesh } = useMemo(() => {
+    const dummy = new THREE.Object3D();
+    const basePts: THREE.Vector3[] = [];
+    const goldPts: THREE.Vector3[] = [];
+
+    const N = 2900;
     const golden = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < N; i++) {
       const y = 1 - (i / (N - 1)) * 2;
@@ -152,111 +219,74 @@ function useGlobeGeometry() {
       const p = new THREE.Vector3(Math.cos(th) * rad, y, Math.sin(th) * rad);
       const lat = THREE.MathUtils.radToDeg(Math.asin(p.y));
       const lon = THREE.MathUtils.radToDeg(Math.atan2(p.x, p.z));
-      if (insideEthiopia(lon, lat)) continue;
-      push(p.multiplyScalar(R * 1.002), 0);
+      if (!insideEthiopia(lon, lat)) basePts.push(p.multiplyScalar(R));
     }
-    // Ethiopia: a fine grid of gold points inside the outline
-    for (let lat = 3; lat <= 15; lat += 0.28) {
-      for (let lon = 33; lon <= 48.2; lon += 0.28) {
-        if (insideEthiopia(lon, lat)) push(toVec(lat, lon, R * 1.004), 1);
-      }
+    for (let lat = 3; lat <= 15; lat += 0.3) {
+      for (let lon = 33; lon <= 48.2; lon += 0.3) if (insideEthiopia(lon, lat)) goldPts.push(toVec(lat, lon, R * 1.004));
     }
 
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    g.setAttribute('aKind', new THREE.Float32BufferAttribute(kind, 1));
-    g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 1));
-    return g;
+    const make = (pts: THREE.Vector3[], radius: number, mat: THREE.Material, detail: number) => {
+      const mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, detail), mat, pts.length);
+      pts.forEach((p, i) => {
+        dummy.position.copy(p);
+        dummy.scale.setScalar(radius);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      return mesh;
+    };
+    return {
+      baseMesh: make(basePts, 0.0105, new THREE.MeshStandardMaterial({ color: '#cdb995', roughness: 0.65, metalness: 0.1 }), 1),
+      goldMesh: make(goldPts, 0.0185, new THREE.MeshStandardMaterial({ color: '#e0a93c', metalness: 1, roughness: 0.22, emissive: '#7a4d0a', emissiveIntensity: 0.3 }), 2),
+    };
   }, []);
+
+  useFrame(({ clock }, delta) => {
+    if (spin.current) spin.current.rotation.y += delta * 0.15 * speed;
+    const m = goldMesh.material as THREE.MeshStandardMaterial;
+    m.emissiveIntensity = 0.28 + 0.22 * Math.sin(clock.getElapsedTime() * 1.8);
+  });
+
+  return (
+    <group ref={spin} rotation={[0, -THREE.MathUtils.degToRad(40), 0]}>
+      <mesh>
+        <sphereGeometry args={[R * 0.995, 96, 96]} />
+        <meshPhysicalMaterial color="#f6efe1" roughness={0.36} metalness={0} clearcoat={0.7} clearcoatRoughness={0.3} sheen={0.6} sheenColor="#fff4dc" />
+      </mesh>
+      <primitive object={baseMesh} />
+      <primitive object={goldMesh} />
+      {CITIES.map((c, i) => (
+        <Arc key={i} to={c} offset={i * 0.19} />
+      ))}
+      <AddisMarker />
+    </group>
+  );
 }
 
-const dotVertex = /* glsl */ `
-  attribute float aKind;
-  attribute float aSeed;
-  uniform float uTime;
-  uniform float uPixel;
-  varying float vKind;
-  varying float vTw;
-  varying float vFacing;
-  void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vKind = aKind;
-    vTw = 0.7 + 0.3 * sin(uTime * 1.5 + aSeed * 6.2831);
-    vFacing = normalize(normalMatrix * position).z;
-    // a slow golden wave travels across the Ethiopian points
-    float wave = aKind * (0.5 + 0.5 * sin(uTime * 2.2 - position.x * 5.0 - position.y * 4.0));
-    float size = mix(2.4, 3.6, aKind) * (1.0 + 0.45 * wave);
-    gl_PointSize = size * uPixel * (7.2 / -mv.z);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-const dotFragment = /* glsl */ `
-  varying float vKind;
-  varying float vTw;
-  varying float vFacing;
-  void main() {
-    float d = length(gl_PointCoord - 0.5);
-    if (d > 0.5) discard;
-    float a = smoothstep(0.5, 0.1, d);
-    vec3 col = mix(vec3(0.74, 0.64, 0.47), vec3(1.0, 0.8, 0.4), vKind);
-    float vis = smoothstep(-0.2, 0.4, vFacing);
-    float alpha = a * mix(0.6, 1.0, vKind) * vTw * (0.2 + 0.8 * vis);
-    gl_FragColor = vec4(col * (0.85 + 0.7 * vKind), alpha);
-  }
-`;
-
-const coreVertex = /* glsl */ `
-  varying vec3 vN; varying vec3 vV;
-  void main() {
-    vN = normalize(normalMatrix * normal);
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vV = normalize(-mv.xyz);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-const coreFragment = /* glsl */ `
-  varying vec3 vN; varying vec3 vV;
-  void main() {
-    float f = pow(1.0 - max(dot(vN, vV), 0.0), 2.4);
-    vec3 base = mix(vec3(0.05, 0.04, 0.03), vec3(0.11, 0.085, 0.06), vN.y * 0.5 + 0.5);
-    gl_FragColor = vec4(base + vec3(0.69, 0.55, 0.34) * f * 0.7, 1.0);
-  }
-`;
-const atmoVertex = /* glsl */ `
-  varying vec3 vN;
-  void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-`;
-const atmoFragment = /* glsl */ `
-  varying vec3 vN;
-  void main() {
-    float i = pow(max(0.72 - dot(vN, vec3(0.0, 0.0, 1.0)), 0.0), 3.5);
-    gl_FragColor = vec4(1.0, 0.76, 0.38, 1.0) * i * 1.6;
-  }
-`;
-
-// ------------------------------------------------------------------ arcs from Addis Ababa
+// ------------------------------------------------------------------ arcs
 const arcVertex = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const arcFragment = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
   uniform float uOffset;
   void main() {
-    float behind = fract(uTime * 0.22 + uOffset - vUv.x);   // distance behind the travelling head
-    float tail = exp(-behind * 8.0);
+    float behind = fract(uTime * 0.2 + uOffset - vUv.x);
+    float tail = exp(-behind * 7.0);
     float ends = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x);
-    vec3 col = mix(vec3(1.0, 0.72, 0.3), vec3(1.0, 0.97, 0.88), tail);
-    gl_FragColor = vec4(col, (0.14 + tail * 0.95) * ends);
+    vec3 col = mix(vec3(0.62, 0.42, 0.12), vec3(0.93, 0.62, 0.1), tail);
+    gl_FragColor = vec4(col, (0.16 + tail * 0.84) * ends);
   }
 `;
 
 function Arc({ to, offset }: { to: { lat: number; lon: number }; offset: number }) {
   const mat = useRef<THREE.ShaderMaterial>(null);
   const geo = useMemo(() => {
-    const a = toVec(ADDIS.lat, ADDIS.lon, R * 1.006);
-    const b = toVec(to.lat, to.lon, R * 1.006);
-    const lift = R + 0.25 + a.distanceTo(b) * 0.28;
+    const a = toVec(ADDIS.lat, ADDIS.lon, R * 1.01);
+    const b = toVec(to.lat, to.lon, R * 1.01);
+    const lift = R + 0.3 + a.distanceTo(b) * 0.3;
     const mid = a.clone().add(b).normalize().multiplyScalar(lift);
-    return new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, mid, b), 90, 0.0065, 6, false);
+    return new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, mid, b), 100, 0.0075, 6, false);
   }, [to.lat, to.lon]);
 
   useFrame(({ clock }) => {
@@ -265,7 +295,7 @@ function Arc({ to, offset }: { to: { lat: number; lon: number }; offset: number 
 
   return (
     <mesh geometry={geo}>
-      <shaderMaterial ref={mat} vertexShader={arcVertex} fragmentShader={arcFragment} transparent depthWrite={false} blending={THREE.AdditiveBlending} uniforms={{ uTime: { value: 0 }, uOffset: { value: offset } }} />
+      <shaderMaterial ref={mat} vertexShader={arcVertex} fragmentShader={arcFragment} transparent depthWrite={false} uniforms={{ uTime: { value: 0 }, uOffset: { value: offset } }} />
     </mesh>
   );
 }
@@ -273,204 +303,196 @@ function Arc({ to, offset }: { to: { lat: number; lon: number }; offset: number 
 function AddisMarker() {
   const ring = useRef<THREE.Mesh>(null);
   const mat = useRef<THREE.MeshBasicMaterial>(null);
-  const pos = useMemo(() => toVec(ADDIS.lat, ADDIS.lon, R * 1.012), []);
+  const pos = useMemo(() => toVec(ADDIS.lat, ADDIS.lon, R * 1.02), []);
   const quat = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), pos.clone().normalize()), [pos]);
-  const ready = useFontsReady();
-  const label = useMemo(() => (ready ? labelTexture('Addis Ababa', 'አዲስ አበባ') : null), [ready]);
 
   useFrame(({ clock }) => {
     const t = (clock.getElapsedTime() % 2.2) / 2.2;
-    if (ring.current) ring.current.scale.setScalar(1 + t * 3.2);
-    if (mat.current) mat.current.opacity = 0.8 * (1 - t);
+    if (ring.current) ring.current.scale.setScalar(1 + t * 3.4);
+    if (mat.current) mat.current.opacity = 0.85 * (1 - t);
   });
 
+  return (
+    <group position={pos} quaternion={quat}>
+      <mesh>
+        <sphereGeometry args={[0.04, 20, 20]} />
+        <meshStandardMaterial color="#b9770e" metalness={1} roughness={0.2} emissive="#b9770e" emissiveIntensity={0.5} />
+      </mesh>
+      <mesh ref={ring}>
+        <ringGeometry args={[0.06, 0.075, 48]} />
+        <meshBasicMaterial ref={mat} color="#c98a1a" transparent depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+// ------------------------------------------------------------------ armillary rings in the flag colours
+function Armillary({ speed }: { speed: number }) {
+  const rings = useRef<Array<THREE.Mesh | null>>([]);
+  const spec: Array<{ r: number; color: string; tilt: [number, number, number]; v: number }> = [
+    { r: 2.05, color: '#0f9142', tilt: [1.2, 0.2, 0], v: 0.1 },
+    { r: 2.22, color: '#e9c514', tilt: [0.95, -0.35, 0.3], v: -0.08 },
+    { r: 2.39, color: '#d3202c', tilt: [1.4, 0.15, -0.3], v: 0.06 },
+  ];
+  useFrame((_, delta) => {
+    rings.current.forEach((m, i) => {
+      if (m) m.rotation.z += delta * spec[i].v * speed;
+    });
+  });
   return (
     <group>
-      <group position={pos} quaternion={quat}>
-        <mesh>
-          <sphereGeometry args={[0.03, 16, 16]} />
-          <meshBasicMaterial color="#fff3d6" />
-        </mesh>
-        <mesh ref={ring}>
-          <ringGeometry args={[0.05, 0.062, 48]} />
-          <meshBasicMaterial ref={mat} color="#ffcf7a" transparent depthWrite={false} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
-        </mesh>
-      </group>
-      {label && (
-        <sprite position={pos.clone().normalize().multiplyScalar(R * 1.34)} scale={[0.92, 0.23, 1]}>
-          <spriteMaterial map={label} transparent depthWrite={false} />
-        </sprite>
-      )}
-    </group>
-  );
-}
-
-function Globe({ speed }: { speed: number }) {
-  const spin = useRef<THREE.Group>(null);
-  const dotMat = useRef<THREE.ShaderMaterial>(null);
-  const geometry = useGlobeGeometry();
-  const gl = useThree((s) => s.gl);
-
-  useFrame(({ clock }, delta) => {
-    if (spin.current) spin.current.rotation.y += delta * 0.16 * speed;
-    if (dotMat.current) dotMat.current.uniforms.uTime.value = clock.getElapsedTime();
-  });
-
-  return (
-    // starts with Ethiopia (lon ~40) facing the camera
-    <group ref={spin} rotation={[0, -THREE.MathUtils.degToRad(40), 0]}>
-      <mesh>
-        <sphereGeometry args={[R * 0.996, 64, 64]} />
-        <shaderMaterial vertexShader={coreVertex} fragmentShader={coreFragment} />
-      </mesh>
-      <points geometry={geometry}>
-        <shaderMaterial ref={dotMat} vertexShader={dotVertex} fragmentShader={dotFragment} transparent depthWrite={false} blending={THREE.AdditiveBlending} uniforms={{ uTime: { value: 0 }, uPixel: { value: gl.getPixelRatio() } }} />
-      </points>
-      {CITIES.map((c, i) => (
-        <Arc key={c.name} to={c} offset={i * 0.19} />
+      {spec.map((s, i) => (
+        <group key={s.color} rotation={s.tilt}>
+          <mesh ref={(m) => { rings.current[i] = m; }}>
+            <torusGeometry args={[s.r, 0.017, 16, 280]} />
+            <meshStandardMaterial color={s.color} metalness={0.75} roughness={0.28} />
+          </mesh>
+        </group>
       ))}
-      <AddisMarker />
     </group>
   );
 }
 
-function Atmosphere() {
-  return (
-    <mesh scale={1.0}>
-      <sphereGeometry args={[R * 1.22, 64, 64]} />
-      <shaderMaterial vertexShader={atmoVertex} fragmentShader={atmoFragment} side={THREE.BackSide} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-    </mesh>
-  );
-}
-
-// ------------------------------------------------------------------ orbiting gold coins
-const TOKENS = [
-  { name: 'Passport', glyph: 'ፓ' },
-  { name: 'Kebele ID', glyph: 'ቀ' },
-  { name: 'Business License', glyph: 'ን' },
-  { name: 'Driving License', glyph: 'መ' },
-  { name: 'Birth Certificate', glyph: 'ል' },
+// ------------------------------------------------------------------ document cards
+const CARDS = [
+  { name: 'Passport', am: 'ፓስፖርት', glyph: 'ፓ', w: 1.05, h: 1.45 },
+  { name: 'Kebele ID', am: 'የቀበሌ መታወቂያ', glyph: 'ቀ', w: 1.55, h: 0.98 },
+  { name: 'Business License', am: 'የንግድ ፈቃድ', glyph: 'ን', w: 1.5, h: 1.08 },
+  { name: 'Driving License', am: 'የመንጃ ፈቃድ', glyph: 'መ', w: 1.55, h: 0.98 },
+  { name: 'Birth Certificate', am: 'የልደት ምስክር ወረቀት', glyph: 'ል', w: 1.2, h: 1.5 },
 ];
 
-function Coin({ index, name, glyph, ready }: { index: number; name: string; glyph: string; ready: boolean }) {
+function DocCard({ index, spec, ready, onSelect }: { index: number; spec: (typeof CARDS)[number]; ready: boolean; onSelect: () => void }) {
   const group = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
-  const angle = (index / TOKENS.length) * Math.PI * 2;
+  const hovered = useRef(false);
+  const angle = (index / CARDS.length) * Math.PI * 2;
   const base = useMemo(() => new THREE.Vector3(Math.cos(angle) * ORBIT, Math.sin(index * 2.1) * 0.55, Math.sin(angle) * ORBIT), [angle, index]);
 
-  const body = useMemo(() => {
-    const g = new THREE.CylinderGeometry(0.34, 0.34, 0.09, 56);
-    g.rotateX(Math.PI / 2); // axis along z: the flat faces point at the viewer
-    return g;
-  }, []);
-  const face = useMemo(() => (ready ? glyphTexture(glyph) : null), [ready, glyph]);
-  const label = useMemo(() => (ready ? labelTexture(name) : null), [ready, name]);
+  const slab = useMemo(() => roundedSlab(spec.w, spec.h, 0.1), [spec]);
+  const face = useMemo(() => roundedPlane(spec.w - 0.004, spec.h - 0.004, 0.096), [spec]);
+  const front = useMemo(() => (ready ? cardTexture(spec.w, spec.h, spec.name, spec.am, spec.glyph) : null), [ready, spec]);
+  const back = useMemo(() => (ready ? backTexture(spec.glyph) : null), [ready, spec]);
 
   useFrame(({ clock, camera }) => {
     const t = clock.getElapsedTime();
     if (!group.current || !inner.current) return;
-    group.current.position.set(base.x, base.y + Math.sin(t * 1.1 + index) * 0.07, base.z);
+    group.current.position.set(base.x, base.y + Math.sin(t * 1.0 + index * 1.7) * 0.09, base.z);
     group.current.lookAt(camera.position);
-    inner.current.rotation.y = Math.sin(t * 0.7 + index * 1.3) * 0.45;
-    inner.current.rotation.x = Math.cos(t * 0.55 + index) * 0.15;
+    inner.current.rotation.y = Math.sin(t * 0.6 + index * 1.3) * 0.38;
+    inner.current.rotation.x = Math.cos(t * 0.5 + index) * 0.12;
+    const target = hovered.current ? 1.14 : 1;
+    inner.current.scale.setScalar(THREE.MathUtils.lerp(inner.current.scale.x, target, 0.12));
   });
 
   return (
-    <group ref={group}>
+    <group
+      ref={group}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        hovered.current = true;
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        hovered.current = false;
+        document.body.style.cursor = '';
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+    >
       <group ref={inner}>
-        <mesh geometry={body}>
-          <meshStandardMaterial color="#c49a58" metalness={0.92} roughness={0.26} />
+        <mesh geometry={slab}>
+          <meshStandardMaterial color="#d6ac66" metalness={1} roughness={0.27} />
         </mesh>
-        {face && (
-          <>
-            <mesh position={[0, 0, 0.0465]}>
-              <circleGeometry args={[0.325, 56]} />
-              <meshStandardMaterial map={face} metalness={0.55} roughness={0.38} />
-            </mesh>
-            <mesh position={[0, 0, -0.0465]} rotation={[0, Math.PI, 0]}>
-              <circleGeometry args={[0.325, 56]} />
-              <meshStandardMaterial map={face} metalness={0.55} roughness={0.38} />
-            </mesh>
-          </>
+        {front && (
+          <mesh geometry={face} position={[0, 0, 0.0225 + 0.014 + 0.0008]}>
+            <meshStandardMaterial map={front} roughness={0.55} metalness={0.05} />
+          </mesh>
+        )}
+        {back && (
+          <mesh geometry={face} position={[0, 0, -(0.0225 + 0.014 + 0.0008)]} rotation={[0, Math.PI, 0]}>
+            <meshStandardMaterial map={back} roughness={0.4} metalness={0.5} />
+          </mesh>
         )}
       </group>
-      {label && (
-        <sprite position={[0, -0.62, 0]} scale={[1.28, 0.32, 1]}>
-          <spriteMaterial map={label} transparent depthWrite={false} />
-        </sprite>
-      )}
     </group>
   );
 }
 
-function Orbit({ speed, intro }: { speed: number; intro: React.MutableRefObject<number> }) {
+function Orbit({ speed, intro, onSelect }: { speed: number; intro: MutableRefObject<number>; onSelect: () => void }) {
   const group = useRef<THREE.Group>(null);
   const ready = useFontsReady();
   useFrame((_, delta) => {
     if (!group.current) return;
-    group.current.rotation.y += delta * 0.14 * speed;
-    group.current.scale.setScalar(0.25 + 0.75 * intro.current);
+    group.current.rotation.y += delta * 0.12 * speed;
+    group.current.scale.setScalar(0.2 + 0.8 * intro.current);
   });
   return (
-    <group rotation={[0.2, 0, 0.12]}>
+    <group rotation={[0.18, 0, 0.1]}>
       <group ref={group}>
-        {TOKENS.map((t, i) => (
-          <Coin key={t.name} index={i} name={t.name} glyph={t.glyph} ready={ready} />
+        {CARDS.map((c, i) => (
+          <DocCard key={c.name} index={i} spec={c} ready={ready} onSelect={onSelect} />
         ))}
       </group>
     </group>
   );
 }
 
-// Three thin rings in the Ethiopian flag colours
-function Rings({ speed }: { speed: number }) {
-  const group = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (group.current) group.current.rotation.y -= delta * 0.06 * speed;
-  });
-  const rings: Array<[number, string, [number, number, number]]> = [
-    [1.72, '#078930', [1.3, 0.15, 0]],
-    [1.9, '#FCDD09', [1.05, -0.3, 0.3]],
-    [2.08, '#DA121D', [1.42, 0.12, -0.25]],
-  ];
+// ------------------------------------------------------------------ ambience
+function Halo() {
+  const tex = useMemo(() => haloTexture(), []);
   return (
-    <group ref={group}>
-      {rings.map(([radius, color, rot]) => (
-        <mesh key={color} rotation={rot}>
-          <torusGeometry args={[radius, 0.0045, 8, 240]} />
-          <meshBasicMaterial color={color} transparent opacity={0.7} blending={THREE.AdditiveBlending} depthWrite={false} />
-        </mesh>
-      ))}
-    </group>
+    <mesh position={[0, 0.1, -3]}>
+      <planeGeometry args={[11, 11]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
+    </mesh>
   );
 }
 
-function StarDust({ speed }: { speed: number }) {
+function GroundShadow() {
+  const tex = useMemo(() => shadowTexture(), []);
+  const mesh = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (mesh.current) mesh.current.scale.setScalar(1 + Math.sin(clock.getElapsedTime() * 0.9) * 0.04);
+  });
+  return (
+    <mesh ref={mesh} position={[0, -3.55, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[6.4, 6.4]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
+    </mesh>
+  );
+}
+
+function GoldDust({ speed }: { speed: number }) {
   const ref = useRef<THREE.Points>(null);
   const geo = useMemo(() => {
     const pts: number[] = [];
-    for (let i = 0; i < 700; i++) {
-      const r = 4.5 + Math.random() * 6;
+    for (let i = 0; i < 420; i++) {
+      const r = 2.2 + Math.random() * 3.6;
       const th = Math.random() * Math.PI * 2;
       const ph = Math.acos(2 * Math.random() - 1);
-      pts.push(r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph) * 0.7, r * Math.sin(ph) * Math.sin(th) - 2);
+      pts.push(r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph) * 0.85, r * Math.sin(ph) * Math.sin(th) - 0.6);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
     return g;
   }, []);
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.01 * speed;
+  useFrame(({ clock }, delta) => {
+    if (!ref.current) return;
+    ref.current.rotation.y += delta * 0.018 * speed;
+    ref.current.position.y = Math.sin(clock.getElapsedTime() * 0.3) * 0.08;
   });
   return (
     <points ref={ref} geometry={geo}>
-      <pointsMaterial color="#e6cfa0" size={0.028} sizeAttenuation transparent opacity={0.55} depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial color={GOLD} size={0.045} sizeAttenuation transparent opacity={0.7} depthWrite={false} />
     </points>
   );
 }
 
-// Offline reflections for the metal coins (no HDR download)
-function Environment() {
+// bright studio reflections, generated offline (no HDR download)
+function Studio() {
   const { gl, scene } = useThree();
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
@@ -485,40 +507,50 @@ function Environment() {
   return null;
 }
 
-function Scene() {
+type Drag = { active: boolean; lastX: number; yaw: number };
+
+function Scene({ drag }: { drag: MutableRefObject<Drag> }) {
   const root = useRef<THREE.Group>(null);
   const intro = useRef(reduced() ? 1 : 0);
+  const follow = useRef({ y: 0, x: 0.14 });
   const speed = useMemo(() => (reduced() ? 0 : 1), []);
   const { camera, size } = useThree();
 
-  // keep everything in frame on narrow screens
   useEffect(() => {
     const aspect = size.width / Math.max(size.height, 1);
-    camera.position.z = 8.4 * Math.max(1, 1.05 / aspect);
+    camera.position.z = 12.6 * Math.max(1, 1.0 / aspect);
     camera.updateProjectionMatrix();
   }, [camera, size]);
+
+  const toServices = () => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
 
   useFrame((state, delta) => {
     intro.current = Math.min(1, intro.current + delta / 1.8);
     const e = 1 - Math.pow(1 - intro.current, 3);
     if (!root.current) return;
-    root.current.scale.setScalar(0.78 + 0.22 * e);
-    root.current.rotation.y = THREE.MathUtils.lerp(root.current.rotation.y, state.pointer.x * 0.4, 0.045);
-    root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, 0.18 - state.pointer.y * 0.22, 0.045);
+    const d = drag.current;
+    if (!d.active) d.yaw *= 0.97; // springs back after you let go
+    follow.current.y = THREE.MathUtils.lerp(follow.current.y, state.pointer.x * 0.3, 0.05);
+    follow.current.x = THREE.MathUtils.lerp(follow.current.x, 0.14 - state.pointer.y * 0.16, 0.05);
+    root.current.scale.setScalar(0.8 + 0.2 * e);
+    root.current.rotation.y = follow.current.y + d.yaw;
+    root.current.rotation.x = follow.current.x;
   });
 
   return (
     <>
-      <Environment />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[3, 4, 5]} intensity={2.4} color="#fff1d8" />
-      <pointLight position={[-4, -2, 3]} intensity={40} color="#ffb85c" />
-      <StarDust speed={speed} />
+      <Studio />
+      <ambientLight intensity={0.55} />
+      <directionalLight position={[4, 6, 6]} intensity={2.6} color="#fff3dc" />
+      <directionalLight position={[-5, 2, 3]} intensity={0.9} color="#dfe8ff" />
+      <pointLight position={[0, -3, 4]} intensity={18} color="#ffcf8a" />
+      <Halo />
+      <GroundShadow />
+      <GoldDust speed={speed} />
       <group ref={root}>
         <Globe speed={speed} />
-        <Atmosphere />
-        <Rings speed={speed} />
-        <Orbit speed={speed} intro={intro} />
+        <Armillary speed={speed} />
+        <Orbit speed={speed} intro={intro} onSelect={toServices} />
       </group>
     </>
   );
@@ -534,9 +566,7 @@ class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   }
   render() {
     return this.state.failed ? (
-      <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-[#e6cfa0]">
-        The 3D view could not start (WebGL is off or unsupported). Check the browser console for details.
-      </div>
+      <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-gray-500">The 3D view could not start (WebGL is off or unsupported). See the browser console for details.</div>
     ) : (
       this.props.children
     );
@@ -546,6 +576,7 @@ class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
 export default function HeroCanvas() {
   const wrap = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
+  const drag = useRef<Drag>({ active: false, lastX: 0, yaw: 0 });
 
   useEffect(() => {
     if (!wrap.current) return;
@@ -555,10 +586,27 @@ export default function HeroCanvas() {
   }, []);
 
   return (
-    <div ref={wrap} className="h-full w-full" role="img" aria-label="A rotating globe with Ethiopia lit in gold, light arcs leaving Addis Ababa, and five gold coins for Tebib's services orbiting it">
+    <div
+      ref={wrap}
+      className="h-full w-full cursor-grab touch-pan-y select-none active:cursor-grabbing"
+      role="img"
+      aria-label="A pearl globe with Ethiopia in gold, ringed in the Ethiopian flag colours, with five document cards for Tebib's services orbiting it"
+      onPointerDown={(e) => {
+        drag.current.active = true;
+        drag.current.lastX = e.clientX;
+      }}
+      onPointerMove={(e) => {
+        if (!drag.current.active) return;
+        drag.current.yaw += (e.clientX - drag.current.lastX) * 0.006;
+        drag.current.lastX = e.clientX;
+      }}
+      onPointerUp={() => (drag.current.active = false)}
+      onPointerLeave={() => (drag.current.active = false)}
+      onPointerCancel={() => (drag.current.active = false)}
+    >
       <Boundary>
-        <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [0, 0.5, 8.4], fov: 36 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}>
-          <Scene />
+        <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [0, 0.6, 12.6], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}>
+          <Scene drag={drag} />
         </Canvas>
       </Boundary>
     </div>

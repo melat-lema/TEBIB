@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Loader2, Users, MessageSquare, Languages, Wallet } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { adminFetch } from '../../lib/adminApi';
-import { Card, PageTitle, Bars } from './ui';
+import { useSearchParams } from 'react-router-dom';
+import { Card, PageTitle, Bars, btn } from './ui';
 
 export default function Analytics() {
   const [a, setA] = useState<any>(null);
+  const [, setParams] = useSearchParams();
   useEffect(() => {
     adminFetch('/analytics').then(setA).catch((e) => toast.error(e.message));
   }, []);
@@ -28,6 +30,24 @@ export default function Analytics() {
         {kpi('Questions all time', a.chatsTotal, MessageSquare)}
         {kpi('Asked in Amharic', `${a.amharicShare}%`, Languages)}
       </div>
+
+      <Card className="mt-6 p-5">
+        <h2 className="font-semibold text-gray-900">Questions Tebib could not answer</h2>
+        <p className="mb-3 mt-1 text-sm text-gray-500">People asked these and nothing verified matched. This is your to-do list for the knowledge base. Add the answer, then it works for everyone.</p>
+        {!a.unanswered?.length ? (
+          <p className="text-sm text-gray-500">None yet. (Only questions asked after you ran <code className="rounded bg-gray-100 px-1">04_unanswered_tracking.sql</code> are tracked.)</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {a.unanswered.map((q: any, i: number) => (
+              <li key={i} className="flex items-center gap-3 py-2.5 text-sm">
+                <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">{q.count}×</span>
+                <span className="flex-1 text-gray-800">{q.question}</span>
+                <button className={btn.ghost} onClick={() => setParams({ tab: 'knowledge', ask: q.question })}>Add answer</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card className="p-5"><h2 className="mb-4 font-semibold text-gray-900">Questions per day</h2><Bars data={a.chatsPerDay} valueKey="chats" label="questions" /></Card>
