@@ -184,6 +184,28 @@ Answer in ${language === 'am' ? 'Amharic' : 'English'}:`;
     }
   }
 
+  // ---------------------------------------------------------------- structured JSON (premium packs)
+
+  async generateJson(prompt: string, retries = 3): Promise<any> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await this.chatModel.generateContent({
+          model: this.modelFor(attempt, retries),
+          contents: prompt,
+          config: { temperature: 0.2, responseMimeType: 'application/json' },
+        });
+        const parsed = JSON.parse((result.text ?? '').trim());
+        if (parsed && typeof parsed === 'object') return parsed;
+        throw new SyntaxError('Model did not return a JSON object');
+      } catch (error: any) {
+        const retryable = this.isRetryable(error) || error instanceof SyntaxError;
+        if (!retryable || attempt === retries) throw error;
+        await new Promise((r) => setTimeout(r, attempt * 2500));
+      }
+    }
+    throw new Error('generateJson failed');
+  }
+
   // ---------------------------------------------------------------- scraper extraction
 
   async extractFacts(prompt: string, retries = 3): Promise<any[]> {

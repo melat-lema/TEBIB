@@ -142,7 +142,16 @@ export class AdminService {
       gaps.set(q, (gaps.get(q) ?? 0) + 1);
     }
 
+    const { data: pays } = await supabase.from('payments').select('amount, completed_at').eq('status', 'completed');
+    const paid = pays ?? [];
+    const revenue = {
+      payments: paid.length,
+      totalEtb: paid.reduce((a: number, p: any) => a + Number(p.amount ?? 0), 0),
+      last30Etb: paid.filter((p: any) => p.completed_at && p.completed_at >= since).reduce((a: number, p: any) => a + Number(p.amount ?? 0), 0),
+    };
+
     return {
+      revenue,
       unanswered: [...gaps.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([question, count]) => ({ question, count })),
       users: users ?? 0,
       chatsTotal: chatsTotal ?? 0,
@@ -166,7 +175,7 @@ export class AdminService {
   // ------------------------------------------------------------------ review queue
 
   async getPending() {
-    const { data, error } = await supabase
+    const full = await supabase
       .from('knowledge_base')
       .select(
         'id, service_id, chunk_text, chunk_text_am, category, source_type, source_details, source_url, source_published_at, trust_level, supersedes_id, metadata, created_at, services(name_en)',
@@ -174,9 +183,21 @@ export class AdminService {
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(300);
-    if (error) throw new BadRequestException(error.message);
 
-    const rows: any[] = data ?? [];
+    let rows: any[] = full.data ?? [];
+    if (full.error) {
+      // Most likely sql/01_migration.sql was not run (new columns missing). Still show the rows so nothing is hidden.
+      this.logger.warn(`getPending full query failed: ${full.error.message}. Falling back to basic columns.`);
+      const basic = await supabase
+        .from('knowledge_base')
+        .select('id, service_id, chunk_text, chunk_text_am, source_type, source_details, source_url, source_published_at, metadata, created_at')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(300);
+      if (basic.error) throw new BadRequestException(basic.error.message);
+      return (basic.data ?? []).map((r: any) => ({ ...r, category: null, trust_level: null, supersedes_id: null, supersedes: null, service_name: null, _legacy: true, _reason: full.error!.message }));
+    }
+
     const oldIds = [...new Set(rows.map((r) => r.supersedes_id).filter(Boolean))];
     const old = new Map<string, any>();
     if (oldIds.length) {

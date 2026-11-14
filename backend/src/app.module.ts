@@ -11,12 +11,11 @@ import { ChatHistoryModule } from './modules/chat-history/chat-history.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ScraperModule } from './modules/scraper/scraper.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PremiumModule } from './modules/premium/premium.module';
+
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     ServicesModule,
     AiModule,
     KnowledgeModule,
@@ -24,8 +23,9 @@ import { AdminModule } from './modules/admin/admin.module';
     ChatModule,
     ChatHistoryModule,
     ScheduleModule.forRoot(),
-    ScraperModule, 
-    AdminModule, 
+    ScraperModule,
+    AdminModule,
+    PremiumModule,
   ],
   controllers: [AppController],
   providers: [AppService],
