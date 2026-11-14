@@ -1,13 +1,21 @@
 // src/components/hero/Hero.tsx
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { motion } from 'framer-motion';
 import BackgroundBlobs from './BackgroundBlobs';
 import HeroContent from './HeroContent';
 import ScrollIndicator from './ScrollIndicator';
 
-// three.js is large: load it after the text so the headline appears instantly
-const HeroCanvas = lazy(() => import('./HeroCanvas'));
+// Start downloading the 3D code immediately (in parallel with everything else) instead of when it is first drawn
+const loadCanvas = () => import('./HeroCanvas');
+loadCanvas();
+const HeroCanvas = lazy(loadCanvas);
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function Hero() {
+  // The text never waits for the 3D. The 3D slides in from the right the moment its scene is complete.
+  const [sceneReady, setSceneReady] = useState(false);
+
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
       <BackgroundBlobs />
@@ -17,17 +25,17 @@ export default function Hero() {
           <div className="order-2 lg:order-1">
             <HeroContent />
           </div>
-          <div className="order-1 h-[440px] w-full lg:order-2 lg:h-[640px]">
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center">
-                  <div className="h-32 w-32 animate-pulse rounded-full border border-[#b08d57]/40 bg-[#b08d57]/10" />
-                </div>
-              }
-            >
-              <HeroCanvas />
+
+          <motion.div
+            className="order-1 h-[440px] w-full lg:order-2 lg:h-[640px]"
+            initial={{ opacity: 0, x: 120 }}
+            animate={sceneReady ? { opacity: 1, x: 0 } : { opacity: 0, x: 120 }}
+            transition={{ duration: 1, ease: EASE }}
+          >
+            <Suspense fallback={null}>
+              <HeroCanvas onReady={() => setSceneReady(true)} />
             </Suspense>
-          </div>
+          </motion.div>
         </div>
       </div>
 

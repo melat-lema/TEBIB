@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard';
 import ServiceDetail from './pages/ServiceDetail';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import PaymentResult from './pages/PaymentResult';
+import PremiumPack from './pages/PremiumPack';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -47,6 +49,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/payment/result" element={<ProtectedRoute><PaymentResult /></ProtectedRoute>} />
+        <Route path="/premium/:id" element={<ProtectedRoute><PremiumPack /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

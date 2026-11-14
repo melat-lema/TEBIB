@@ -1,37 +1,46 @@
-// src/components/sections/CTASection.tsx
-import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+// src/components/sections/HowItWorks.tsx
+// White section, three big numbered steps joined by a gold line that draws itself as you scroll.
+import { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { Search, MessageCircle, FileCheck2 } from 'lucide-react';
 
-const CTASection = () => (
-  <section className="bg-gradient-to-br from-gray-50 via-white to-gray-100 py-24">
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true }}
-        className="rounded-3xl bg-gradient-to-br from-[#b08d57] to-[#8c6b42] p-10 text-center text-white shadow-2xl md:p-16"
-      >
-        <h2 className="mb-5 text-3xl font-semibold md:text-4xl">Stop guessing what the office will ask for.</h2>
-        <p className="mx-auto mb-9 max-w-2xl text-base opacity-90 md:text-lg">
-          Ask Tebib about passports, IDs, licenses and certificates, in Amharic or English, and get answers that were reviewed before they were published.
-        </p>
+const steps = [
+  { Icon: Search, title: 'Find your service', text: 'Pick passport, ID, license or certificate. You see the fees, documents and steps that were verified, and the date they were last checked.' },
+  { Icon: MessageCircle, title: 'Ask in your own words', text: 'Type a question in Amharic or English. The answer comes only from reviewed facts, with its source. If Tebib does not know, it says so.' },
+  { Icon: FileCheck2, title: 'Walk in prepared', text: 'Get a clear checklist of what to bring and what it will cost, so one visit to the office is enough.' },
+];
 
-        <Link to="/register">
-          <motion.span
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            className="inline-flex items-center gap-3 rounded-xl bg-white px-8 py-4 text-base font-semibold text-[#8c6b42] shadow-lg transition-shadow hover:shadow-xl"
-          >
-            Create a free account
-            <ArrowRight className="h-6 w-6" />
-          </motion.span>
-        </Link>
+export default function HowItWorks() {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 75%', 'end 60%'] });
+  const grow = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
 
-        <p className="mt-6 text-sm opacity-80">Free to get started. No credit card needed.</p>
-      </motion.div>
-    </div>
-  </section>
-);
+  return (
+    <section className="bg-white py-24">
+      <div className="mx-auto grid max-w-6xl gap-14 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <p className="text-sm font-semibold text-[#b08d57]">How it works</p>
+          <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-gray-900 sm:text-4xl">From question to a prepared visit in three steps.</h2>
+          <p className="mt-4 max-w-sm text-base text-gray-600">No searching through old forum posts. One place, checked by people.</p>
+        </div>
 
-export default CTASection;
+        <div ref={ref} className="relative pl-16">
+          <div className="absolute bottom-6 left-[1.45rem] top-6 w-px bg-gray-200" />
+          <motion.div style={{ height: grow }} className="absolute left-[1.45rem] top-6 w-px bg-[#b08d57]" />
+          <ol className="space-y-14">
+            {steps.map(({ Icon, title, text }, i) => (
+              <li key={title} className="relative">
+                <span className="absolute -left-16 flex h-12 w-12 items-center justify-center rounded-full border border-[#b08d57]/50 bg-white text-[#b08d57] shadow-sm">
+                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                </span>
+                <span className="font-ethiopic absolute -top-6 right-0 select-none text-7xl font-bold leading-none text-[#b08d57]/10">{`0${i + 1}`}</span>
+                <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
+                <p className="mt-2 max-w-lg text-[15px] leading-relaxed text-gray-600">{text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import img from '../assets/Logo.png';
 import ChatWidget from '../components/chat/ChatWidget';
+import PremiumPanel from '../components/premium/PremiumPanel';
 
 const ORDER = ['fee', 'requirement', 'step', 'office', 'contact', 'deadline', 'update', 'other'] as const;
 type Cat = (typeof ORDER)[number];
@@ -95,6 +96,7 @@ export default function ServiceDetail() {
   const [service, setService] = useState<any>(null);
   const [details, setDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -142,7 +144,6 @@ export default function ServiceDetail() {
 
   const name = lang === 'en' ? service.name_en : service.name_am;
   const description = lang === 'en' ? service.description_en : service.description_am;
-  const askAI = () => window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: t.askPrompt(name), send: true } }));
   const sourceLabel = (d: any) => (d.source_type === 'website' ? t.scraper : d.source_type === 'telegram' ? t.telegram : t.manual);
 
   return (
@@ -287,8 +288,9 @@ export default function ServiceDetail() {
               </div>
 
               <div className="mt-8 space-y-3 border-t border-gray-100 pt-6">
-                <button onClick={askAI} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#b08d57] py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-[#8c6b42] hover:shadow-lg">
+                <button onClick={() => setPanelOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#b08d57] py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-[#8c6b42] hover:shadow-lg">
                   <Sparkles className="h-4 w-4" /> {t.askAI}
+                  <span className="rounded bg-white/25 px-1.5 py-0.5 text-[10px] font-bold">{lang === 'am' ? 'ፕሪሚየም' : 'Premium'}</span>
                 </button>
                 <button onClick={() => navigate('/dashboard')} className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-gray-50">
                   {t.allServices}
@@ -299,6 +301,7 @@ export default function ServiceDetail() {
         </div>
       </main>
 
+      <PremiumPanel open={panelOpen} onClose={() => setPanelOpen(false)} service={service} lang={lang} />
       <ChatWidget lang={lang} />
     </div>
   );

@@ -1,37 +1,27 @@
 // src/components/sections/CTASection.tsx
+// Full-width dark band (clearly different from the white "How it works" above it).
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const CTASection = () => (
-  <section className="bg-gradient-to-br from-gray-50 via-white to-gray-100 py-24">
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true }}
-        className="rounded-3xl bg-gradient-to-br from-[#b08d57] to-[#8c6b42] p-10 text-center text-white shadow-2xl md:p-16"
-      >
-        <h2 className="mb-5 text-3xl font-semibold md:text-4xl">Stop guessing what the office will ask for.</h2>
-        <p className="mx-auto mb-9 max-w-2xl text-base opacity-90 md:text-lg">
-          Ask Tebib about passports, IDs, licenses and certificates, in Amharic or English, and get answers that were reviewed before they were published.
-        </p>
+export default function CTASection() {
+  return (
+    <section className="relative overflow-hidden bg-[#1d1a16] py-24 text-white">
+      <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-[#b08d57]/25 blur-3xl" />
+      <span aria-hidden className="font-ethiopic pointer-events-none absolute -bottom-24 right-4 select-none text-[24rem] font-bold leading-none text-white/[0.04]">ጠ</span>
 
-        <Link to="/register">
-          <motion.span
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            className="inline-flex items-center gap-3 rounded-xl bg-white px-8 py-4 text-base font-semibold text-[#8c6b42] shadow-lg transition-shadow hover:shadow-xl"
-          >
-            Create a free account
-            <ArrowRight className="h-6 w-6" />
-          </motion.span>
-        </Link>
-
-        <p className="mt-6 text-sm opacity-80">Free to get started. No credit card needed.</p>
+      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative mx-auto flex max-w-5xl flex-col items-start gap-8 px-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+        <div className="max-w-xl">
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Stop guessing what the office will ask for.</h2>
+          <p className="mt-3 text-base text-gray-300">Create a free account and ask about any of the five services, in Amharic or English.</p>
+        </div>
+        <div className="flex flex-shrink-0 flex-col items-start gap-3">
+          <Link to="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#b08d57] px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-black/30 transition hover:bg-[#c29a60]">
+            Create a free account <ArrowRight className="h-5 w-5" />
+          </Link>
+          <Link to="/login" className="text-sm text-gray-400 underline-offset-4 hover:text-white hover:underline">I already have an account</Link>
+        </div>
       </motion.div>
-    </div>
-  </section>
-);
-
-export default CTASection;
+    </section>
+  );
+}

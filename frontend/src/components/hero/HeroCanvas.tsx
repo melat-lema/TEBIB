@@ -1,11 +1,19 @@
-
+// src/components/hero/HeroCanvas.tsx
+// Real three.js scene, designed for the white + gold page (transparent canvas, studio lighting):
+//  - a pearl globe with Ethiopia embossed in polished gold, and light arcs leaving Addis Ababa
+//  - an armillary sphere (the classic scholar's instrument) in the three Ethiopian flag colours
+//  - five 3D document cards (passport, ID, licenses, certificate) with gold edges, orbiting the globe
+//  - a soft halo behind and a soft shadow underneath, gold dust, drag to spin, hover a card to lift it
+//
+//   npm i three @react-three/fiber
+//   npm i -D @types/three
 import { Component, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-const R = 1.4; // globe radius
-const ORBIT = 2.95; // card orbit radius
+const R = 1.55; // globe radius
+const ORBIT = 3.1; // card orbit radius
 const GOLD = '#c9a064';
 
 const reduced = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -49,7 +57,11 @@ function useFontsReady() {
     let alive = true;
     (async () => {
       try {
-        await Promise.all([document.fonts.load("700 60px 'Manrope'"), document.fonts.load("600 40px 'Manrope'"), document.fonts.load("700 80px 'Noto Sans Ethiopic'")]);
+        // never hold the scene back for more than 700 ms because of fonts
+        await Promise.race([
+          Promise.all([document.fonts.load("700 60px 'Manrope'"), document.fonts.load("600 40px 'Manrope'"), document.fonts.load("700 80px 'Noto Sans Ethiopic'")]),
+          new Promise((r) => setTimeout(r, 700)),
+        ]);
       } catch {
         /* system fonts will do */
       }
@@ -72,16 +84,6 @@ function makeTexture(w: number, h: number, draw: (c: CanvasRenderingContext2D) =
   tex.anisotropy = 8;
   return tex;
 }
-
-const haloTexture = () =>
-  makeTexture(512, 512, (c) => {
-    const g = c.createRadialGradient(256, 256, 0, 256, 256, 256);
-    g.addColorStop(0, 'rgba(201,160,100,0.38)');
-    g.addColorStop(0.45, 'rgba(201,160,100,0.14)');
-    g.addColorStop(1, 'rgba(201,160,100,0)');
-    c.fillStyle = g;
-    c.fillRect(0, 0, 512, 512);
-  });
 
 const shadowTexture = () =>
   makeTexture(256, 256, (c) => {
@@ -210,7 +212,7 @@ function Globe({ speed }: { speed: number }) {
     const basePts: THREE.Vector3[] = [];
     const goldPts: THREE.Vector3[] = [];
 
-    const N = 2900;
+    const N = 3400;
     const golden = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < N; i++) {
       const y = 1 - (i / (N - 1)) * 2;
@@ -222,7 +224,7 @@ function Globe({ speed }: { speed: number }) {
       if (!insideEthiopia(lon, lat)) basePts.push(p.multiplyScalar(R));
     }
     for (let lat = 3; lat <= 15; lat += 0.3) {
-      for (let lon = 33; lon <= 48.2; lon += 0.3) if (insideEthiopia(lon, lat)) goldPts.push(toVec(lat, lon, R * 1.004));
+      for (let lon = 33; lon <= 48.2; lon += 0.3) if (insideEthiopia(lon, lat)) goldPts.push(toVec(lat, lon, R * 1.006));
     }
 
     const make = (pts: THREE.Vector3[], radius: number, mat: THREE.Material, detail: number) => {
@@ -237,13 +239,15 @@ function Globe({ speed }: { speed: number }) {
       return mesh;
     };
     return {
-      baseMesh: make(basePts, 0.0105, new THREE.MeshStandardMaterial({ color: '#cdb995', roughness: 0.65, metalness: 0.1 }), 1),
-      goldMesh: make(goldPts, 0.0185, new THREE.MeshStandardMaterial({ color: '#e0a93c', metalness: 1, roughness: 0.22, emissive: '#7a4d0a', emissiveIntensity: 0.3 }), 2),
+      baseMesh: make(basePts, 0.012, new THREE.MeshStandardMaterial({ color: '#cdb995', roughness: 0.65, metalness: 0.1 }), 0),
+      goldMesh: make(goldPts, 0.026, new THREE.MeshStandardMaterial({ color: '#e0a93c', metalness: 1, roughness: 0.22, emissive: '#7a4d0a', emissiveIntensity: 0.3 }), 1),
     };
   }, []);
 
-  useFrame(({ clock }, delta) => {
-    if (spin.current) spin.current.rotation.y += delta * 0.15 * speed;
+  useFrame(({ clock }) => {
+    // The globe rocks around Ethiopia instead of spinning all the way round, so the country is always in view
+    const t = clock.getElapsedTime();
+    if (spin.current) spin.current.rotation.y = -THREE.MathUtils.degToRad(40) + Math.sin(t * 0.33) * 1.0 * speed;
     const m = goldMesh.material as THREE.MeshStandardMaterial;
     m.emissiveIntensity = 0.28 + 0.22 * Math.sin(clock.getElapsedTime() * 1.8);
   });
@@ -251,7 +255,7 @@ function Globe({ speed }: { speed: number }) {
   return (
     <group ref={spin} rotation={[0, -THREE.MathUtils.degToRad(40), 0]}>
       <mesh>
-        <sphereGeometry args={[R * 0.995, 96, 96]} />
+        <sphereGeometry args={[R * 0.995, 64, 64]} />
         <meshPhysicalMaterial color="#f6efe1" roughness={0.36} metalness={0} clearcoat={0.7} clearcoatRoughness={0.3} sheen={0.6} sheenColor="#fff4dc" />
       </mesh>
       <primitive object={baseMesh} />
@@ -381,7 +385,7 @@ function DocCard({ index, spec, ready, onSelect }: { index: number; spec: (typeo
     group.current.lookAt(camera.position);
     inner.current.rotation.y = Math.sin(t * 0.6 + index * 1.3) * 0.38;
     inner.current.rotation.x = Math.cos(t * 0.5 + index) * 0.12;
-    const target = hovered.current ? 1.14 : 1;
+    const target = hovered.current ? 1.34 : 1.2;
     inner.current.scale.setScalar(THREE.MathUtils.lerp(inner.current.scale.x, target, 0.12));
   });
 
@@ -402,13 +406,13 @@ function DocCard({ index, spec, ready, onSelect }: { index: number; spec: (typeo
         onSelect();
       }}
     >
-      <group ref={inner}>
+      <group ref={inner} scale={1.2}>
         <mesh geometry={slab}>
           <meshStandardMaterial color="#d6ac66" metalness={1} roughness={0.27} />
         </mesh>
         {front && (
           <mesh geometry={face} position={[0, 0, 0.0225 + 0.014 + 0.0008]}>
-            <meshStandardMaterial map={front} roughness={0.55} metalness={0.05} />
+            <meshStandardMaterial map={front} emissiveMap={front} emissive="#ffffff" emissiveIntensity={0.5} roughness={0.9} metalness={0} envMapIntensity={0.15} />
           </mesh>
         )}
         {back && (
@@ -421,13 +425,10 @@ function DocCard({ index, spec, ready, onSelect }: { index: number; spec: (typeo
   );
 }
 
-function Orbit({ speed, intro, onSelect }: { speed: number; intro: MutableRefObject<number>; onSelect: () => void }) {
+function Orbit({ speed, ready, onSelect }: { speed: number; ready: boolean; onSelect: () => void }) {
   const group = useRef<THREE.Group>(null);
-  const ready = useFontsReady();
   useFrame((_, delta) => {
-    if (!group.current) return;
-    group.current.rotation.y += delta * 0.12 * speed;
-    group.current.scale.setScalar(0.2 + 0.8 * intro.current);
+    if (group.current) group.current.rotation.y += delta * 0.12 * speed;
   });
   return (
     <group rotation={[0.18, 0, 0.1]}>
@@ -441,16 +442,6 @@ function Orbit({ speed, intro, onSelect }: { speed: number; intro: MutableRefObj
 }
 
 // ------------------------------------------------------------------ ambience
-function Halo() {
-  const tex = useMemo(() => haloTexture(), []);
-  return (
-    <mesh position={[0, 0.1, -3]}>
-      <planeGeometry args={[11, 11]} />
-      <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
-    </mesh>
-  );
-}
-
 function GroundShadow() {
   const tex = useMemo(() => shadowTexture(), []);
   const mesh = useRef<THREE.Mesh>(null);
@@ -458,8 +449,8 @@ function GroundShadow() {
     if (mesh.current) mesh.current.scale.setScalar(1 + Math.sin(clock.getElapsedTime() * 0.9) * 0.04);
   });
   return (
-    <mesh ref={mesh} position={[0, -3.55, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[6.4, 6.4]} />
+    <mesh ref={mesh} position={[0, -2.85, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[5.4, 5.4]} />
       <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
     </mesh>
   );
@@ -509,30 +500,30 @@ function Studio() {
 
 type Drag = { active: boolean; lastX: number; yaw: number };
 
-function Scene({ drag }: { drag: MutableRefObject<Drag> }) {
+function Scene({ drag, onReady }: { drag: MutableRefObject<Drag>; onReady: () => void }) {
   const root = useRef<THREE.Group>(null);
-  const intro = useRef(reduced() ? 1 : 0);
+  const fonts = useFontsReady();
+  const frames = useRef(0);
   const follow = useRef({ y: 0, x: 0.14 });
   const speed = useMemo(() => (reduced() ? 0 : 1), []);
   const { camera, size } = useThree();
 
   useEffect(() => {
     const aspect = size.width / Math.max(size.height, 1);
-    camera.position.z = 12.6 * Math.max(1, 1.0 / aspect);
+    camera.position.z = 11.4 * Math.max(1, 1.0 / aspect);
     camera.updateProjectionMatrix();
   }, [camera, size]);
 
   const toServices = () => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
 
-  useFrame((state, delta) => {
-    intro.current = Math.min(1, intro.current + delta / 1.8);
-    const e = 1 - Math.pow(1 - intro.current, 3);
+  useFrame((state) => {
+    // tell the page the scene is complete (fonts loaded, card textures built, a few frames drawn)
+    if (fonts && frames.current < 4 && ++frames.current === 4) onReady();
     if (!root.current) return;
     const d = drag.current;
     if (!d.active) d.yaw *= 0.97; // springs back after you let go
     follow.current.y = THREE.MathUtils.lerp(follow.current.y, state.pointer.x * 0.3, 0.05);
     follow.current.x = THREE.MathUtils.lerp(follow.current.x, 0.14 - state.pointer.y * 0.16, 0.05);
-    root.current.scale.setScalar(0.8 + 0.2 * e);
     root.current.rotation.y = follow.current.y + d.yaw;
     root.current.rotation.x = follow.current.x;
   });
@@ -544,13 +535,12 @@ function Scene({ drag }: { drag: MutableRefObject<Drag> }) {
       <directionalLight position={[4, 6, 6]} intensity={2.6} color="#fff3dc" />
       <directionalLight position={[-5, 2, 3]} intensity={0.9} color="#dfe8ff" />
       <pointLight position={[0, -3, 4]} intensity={18} color="#ffcf8a" />
-      <Halo />
       <GroundShadow />
       <GoldDust speed={speed} />
       <group ref={root}>
         <Globe speed={speed} />
         <Armillary speed={speed} />
-        <Orbit speed={speed} intro={intro} onSelect={toServices} />
+        <Orbit speed={speed} ready={fonts} onSelect={toServices} />
       </group>
     </>
   );
@@ -573,10 +563,17 @@ class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   }
 }
 
-export default function HeroCanvas() {
+export default function HeroCanvas({ onReady }: { onReady?: () => void }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
   const drag = useRef<Drag>({ active: false, lastX: 0, yaw: 0 });
+  const announced = useRef(false);
+
+  const announce = () => {
+    if (announced.current) return;
+    announced.current = true;
+    onReady?.();
+  };
 
   useEffect(() => {
     if (!wrap.current) return;
@@ -584,6 +581,12 @@ export default function HeroCanvas() {
     io.observe(wrap.current);
     return () => io.disconnect();
   }, []);
+
+  // safety net: if anything stalls, still let the page show the scene
+  useEffect(() => {
+    const t = setTimeout(announce, 2500);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -605,8 +608,8 @@ export default function HeroCanvas() {
       onPointerCancel={() => (drag.current.active = false)}
     >
       <Boundary>
-        <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [0, 0.6, 12.6], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}>
-          <Scene drag={drag} />
+        <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [0, 0.6, 11.4], fov: 35 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}>
+          <Scene drag={drag} onReady={announce} />
         </Canvas>
       </Boundary>
     </div>

@@ -14,12 +14,14 @@ export default function Review() {
   const [filter, setFilter] = useState<Filter>('all');
   const [edit, setEdit] = useState({ chunk_text: '', chunk_text_am: '', service_id: '', category: '' });
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
+      setLoadError(null);
       setItems(await adminFetch('/pending'));
     } catch (e: any) {
-      toast.error(e.message);
+      setLoadError(e.message);
       setItems([]);
     }
   }, []);
@@ -128,9 +130,20 @@ export default function Review() {
         )}
       </div>
 
-      {visible.length === 0 ? (
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <b>The review queue could not be loaded.</b> The sidebar counts items separately, so a number there with an empty list means this request failed. Error: {loadError}
+        </div>
+      )}
+      {items.some((i) => i._legacy) && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Some database columns are missing, so the review screen is in basic mode (no categories or "changes a fact" comparison). Run <code className="rounded bg-white px-1">sql/01_migration.sql</code> in the Supabase SQL Editor, then refresh.
+        </div>
+      )}
+
+      {visible.length === 0 && !loadError ? (
         <Card><Empty>Nothing to review. New facts appear here after the scraper runs.</Empty></Card>
-      ) : (
+      ) : visible.length === 0 ? null : (
         <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
           <Card className="max-h-[calc(100vh-15rem)] overflow-y-auto">
             <ul className="divide-y divide-gray-100">

@@ -1,32 +1,12 @@
 // src/components/hero/BackgroundBlobs.tsx
-import { motion } from 'framer-motion';
-
+// Plain radial gradients instead of huge blurred, animated elements.
+// CSS blur() on big moving layers renders with hard rectangular edges in Chrome and makes the page slow.
 export default function BackgroundBlobs() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {/* Gold Blur - Top Left */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.5, ease: "easeOut" }}
-        className="absolute -top-20 -left-20 w-[600px] h-[600px] bg-[#b08d57]/15 rounded-full blur-[140px]" 
-      />
-      
-      {/* Gray Blur - Top Right */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.5, delay: 0.2, ease: "easeOut" }}
-        className="absolute top-20 right-0 w-[400px] h-[400px] bg-gray-300/20 rounded-full blur-[120px]" 
-      />
-      
-      {/* Gold Blur - Bottom Left */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.5, delay: 0.4, ease: "easeOut" }}
-        className="absolute bottom-0 left-20 w-[500px] h-[500px] bg-[#b08d57]/10 rounded-full blur-[100px]" 
-      />
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute -left-40 -top-40 h-[760px] w-[760px] rounded-full" style={{ background: 'radial-gradient(circle at center, rgba(176,141,87,0.16) 0%, rgba(176,141,87,0.07) 40%, rgba(176,141,87,0) 70%)' }} />
+      <div className="absolute right-[-10%] top-[8%] h-[620px] w-[620px] rounded-full" style={{ background: 'radial-gradient(circle at center, rgba(176,141,87,0.12) 0%, rgba(176,141,87,0.05) 45%, rgba(176,141,87,0) 70%)' }} />
+      <div className="absolute bottom-[-20%] left-[15%] h-[640px] w-[640px] rounded-full" style={{ background: 'radial-gradient(circle at center, rgba(176,141,87,0.09) 0%, rgba(176,141,87,0) 70%)' }} />
     </div>
   );
 }
