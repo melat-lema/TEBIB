@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useInView, useScroll, useTransform } from 'framer-motion';
 import { ShieldCheck, FileSearch, UserCheck, Rocket, Languages, HelpCircle } from 'lucide-react';
 import '../../styles/landing.css';
+import Reveal from '../ui/Reveal';
 
 // ---------------------------------------------------------------- 1. bilingual chat demo
 const demo = {
@@ -124,8 +125,10 @@ function Counter({ to, label }: { to: number; label: string }) {
 }
 
 // ---------------------------------------------------------------- section
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
-const item = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } } };
+const item = {
+  hidden: (dir: 'left' | 'right') => ({ opacity: 0, x: dir === 'left' ? -110 : 110 }),
+  show: { opacity: 1, x: 0, transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] as const } },
+};
 
 export default function WhyChooseUs() {
   const section = useRef<HTMLElement>(null);
@@ -137,7 +140,7 @@ export default function WhyChooseUs() {
   const x = useTransform(scrollYProgress, [0, 1], ['6%', '-28%']);
 
   return (
-    <section ref={section} className="relative overflow-hidden bg-[#faf7f1] py-24">
+    <section id="why" ref={section} className="relative overflow-hidden bg-[#faf7f1] py-24">
       <div className="tb-dots pointer-events-none absolute inset-0 opacity-60" />
       <motion.div
         aria-hidden
@@ -148,15 +151,15 @@ export default function WhyChooseUs() {
       </motion.div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl">
+        <Reveal from="left" className="max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">Built so you can trust the number you read.</h2>
           <p className="mt-3 text-base text-gray-600">Government information changes. Tebib shows where each answer came from and when it was last confirmed.</p>
-        </div>
+        </Reveal>
 
-        <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10%' }} className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* A: bilingual chat (dark) */}
-          <motion.div variants={item} ref={chatRef} className="relative overflow-hidden rounded-[2rem] bg-[#1d1a16] p-8 text-white lg:col-span-7 lg:p-10">
-            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#b08d57]/20 blur-3xl" />
+          <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="left" ref={chatRef} className="relative overflow-hidden rounded-[2rem] bg-[#1d1a16] p-8 text-white lg:col-span-7 lg:p-10">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full" style={{ background: 'radial-gradient(circle at center, rgba(176,141,87,0.28) 0%, rgba(176,141,87,0) 70%)' }} />
             <div className="relative">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#b08d57]/20 text-[#e6cfa0]">
                 <Languages className="h-5 w-5" />
@@ -168,14 +171,14 @@ export default function WhyChooseUs() {
           </motion.div>
 
           {/* B: pipeline */}
-          <motion.div variants={item} className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
+          <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="right" className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
             <h3 className="text-xl font-semibold text-gray-900">Every answer has a trail</h3>
             <p className="mt-2 text-sm text-gray-500">How a fact reaches you.</p>
             <Pipeline />
           </motion.div>
 
           {/* C: numbers */}
-          <motion.div variants={item} className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
+          <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="left" className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
             <div className="grid grid-cols-2 gap-6">
               <Counter to={5} label="core services covered" />
               <Counter to={2} label="languages, switch anytime" />
@@ -186,7 +189,7 @@ export default function WhyChooseUs() {
           </motion.div>
 
           {/* D: honest about gaps */}
-          <motion.div variants={item} className="relative overflow-hidden rounded-[2rem] border border-[#b08d57]/30 bg-gradient-to-br from-[#b08d57] to-[#8c6b42] p-8 text-white lg:col-span-7 lg:p-10">
+          <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="right" className="relative overflow-hidden rounded-[2rem] border border-[#b08d57]/30 bg-gradient-to-br from-[#b08d57] to-[#8c6b42] p-8 text-white lg:col-span-7 lg:p-10">
             <HelpCircle className="absolute -bottom-6 -right-4 h-44 w-44 text-white/10" strokeWidth={1.2} />
             <div className="relative max-w-lg">
               <h3 className="text-xl font-semibold">It says so when it doesn't know</h3>
@@ -196,7 +199,7 @@ export default function WhyChooseUs() {
               </div>
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

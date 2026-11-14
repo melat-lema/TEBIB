@@ -1,261 +1,81 @@
-import {useState} from 'react';
-import { FiChevronDown } from "react-icons/fi";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FiChevronDown } from 'react-icons/fi';
+import { Menu, X, Bot, FileText, Search, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import img from '../../assets/logo.png';
 
-import { Menu, X } from "lucide-react";
-import { Bot, FileText, Search, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-const Navbar=()=>{
-    const [isFeaturesHovered, setIsFeaturesHovered] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    return(
-       <motion.nav
-    initial={{
-        y: -80,
-        opacity: 0
-    }}
-    animate={{
-        y: 0,
-        opacity: 1
-    }}
-    transition={{
-        duration: 0.6,
-        ease: "easeOut"
-    }}
-    className="bg-[#f4f4f5] border-b border-gray-200 sticky top-0 z-50"
->
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-20">
-                    <div className="flex items-center gap-3">
-                        <motion.img
-    src={img}
-    alt="ጠቢብ Logo"
-    className="h-20 w-auto object-contain"
-    whileHover={{
-        scale: 1.05,
-        
-    }}
-    transition={{
-        type: "spring",
-        stiffness: 300
-    }}
-/>
-                    </div>
+const links = [
+  { href: '#services', label: 'Services', Icon: Bot },
+  { href: '#why', label: 'Why Tebib', Icon: Sparkles },
+  { href: '#how', label: 'How it works', Icon: FileText },
+  { href: '/register', label: 'Premium tools', Icon: Search },
+];
 
-                    <div className="hidden md:flex items-center space-x-8">
-                        <div
-                        className="relative"
-                        onMouseEnter={()=> setIsFeaturesHovered(true)}
-                        onMouseLeave={()=> setIsFeaturesHovered(false)}
-                        >
-                            <button className="text-gray-700 hover:text-black font-medium flex items-center space-x-1 transition-colors">
-                                <span>Features</span>
-                                <FiChevronDown  className={`w-4 h-4 transition-transform ${isFeaturesHovered? "rotate-180" : ""}`} />
-                            </button>
+const Navbar = () => {
+  const [open, setOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
 
-                             <AnimatePresence>
-  {isFeaturesHovered && (
-    <motion.div
-      initial={{ opacity: 0, y: -10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -10, scale: 0.98 }}
-      transition={{
-        duration: 0.2,
-        ease: "easeOut",
-      }}
-      className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 border border-gray-100"
-    >
-      <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#b08d57]">
-        Services
-      </a>
+  // No slide-in animation on the bar itself: it is simply there from the first frame.
+  return (
+    <nav className="sticky top-0 z-50 border-b border-gray-200 bg-[#f4f4f5]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          <Link to="/" className="flex items-center">
+            {/* multiply makes the logo's off-white background vanish into the bar */}
+            <img src={img} alt="ጠቢብ Logo" className="h-12 w-auto object-contain " />
+          </Link>
 
-      <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#b08d57]">
-        How It Works
-      </a>
-
-      <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#b08d57]">
-        Pricing
-      </a>
-
-      <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#b08d57]">
-        Premium Tools
-      </a>
-    </motion.div>
-  )}
-</AnimatePresence>
-                        </div>
-                     <motion.a
-    href="/login"
-    whileHover={{
-        y: -2,
-        color: "#b08d57"
-    }}
-    transition={{
-        duration: 0.2
-    }}
-    className="font-medium text-gray-700"
->
-    Sign In
-</motion.a>   
-          
-            <motion.a
-    href="/register"
-    whileHover={{
-        scale: 1.05
-    }}
-    whileTap={{
-        scale: 0.96
-    }}
-    className="bg-[#b08d57] text-white px-5 py-2.5 rounded-md font-medium shadow-sm"
->
-    Get Started for Free
-</motion.a>
-
-                    </div>
-                    <div className="md:hidden flex items-center">
-  <button
-    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-    className="text-gray-700 hover:text-black focus:outline-none p-2"
-    aria-label="Toggle menu"
-  >
-    <motion.div
-    key={isMobileMenuOpen ? "close" : "open"}
-    initial={{ rotate: -90, opacity: 0 }}
-    animate={{ rotate: 0, opacity: 1 }}
-    exit={{ rotate: 90, opacity: 0 }}
-    transition={{ duration: 0.2 }}
->
-    {isMobileMenuOpen ? (
-        <X className="w-6 h-6" />
-    ) : (
-        <Menu className="w-6 h-6" />
-    )}
-</motion.div>
-  </button>
-</div>
-                </div>
+          <div className="hidden items-center space-x-8 md:flex">
+            <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+              <button className="flex items-center space-x-1 font-medium text-gray-700 transition-colors hover:text-black">
+                <span>Features</span>
+                <FiChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {open && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute left-0 mt-2 w-56 rounded-lg border border-gray-100 bg-white py-2 shadow-xl"
+                  >
+                    {links.map((l) => (
+                      <a key={l.label} href={l.href} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#b08d57]">{l.label}</a>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-{/* MOBILE MENU DROPDOWN */}
-<AnimatePresence>
-  {isMobileMenuOpen && (
-    <motion.div
-      initial={{
-        opacity: 0,
-        height: 0
-      }}
-      animate={{
-        opacity: 1,
-        height: "auto"
-      }}
-      exit={{
-        opacity: 0,
-        height: 0
-      }}
-      transition={{
-        duration: 0.3,
-        ease: "easeInOut"
-      }}
-      className="overflow-hidden md:hidden bg-[#f4f4f5] border-b border-gray-200 shadow-lg"
-    >
-         <div className="px-4 py-5 space-y-5">
 
-      {/* Services */}
-      <div>
-        <span className="block text-gray-900 font-semibold mb-3">
-          Services
-        </span>
+            <Link to="/login" className="font-medium text-gray-700 transition-colors hover:text-[#b08d57]">Sign In</Link>
+            <Link to="/register" className="rounded-md bg-[#b08d57] px-5 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#8c6b42]">Get Started for Free</Link>
+          </div>
 
-        <div className="ml-2 space-y-3 border-l-2 border-[#b08d57] pl-4">
-
-         <motion.a
-  href="#"
-  whileHover={{
-    x: 8,
-    color: "#b08d57"
-  }}
-  transition={{ duration: 0.2 }}
-  className="flex items-center gap-2 text-sm text-gray-600"
->
-            <Bot className="w-4 h-4" />
-           Services
-            </motion.a>
-
-          <motion.a
-  href="#"
-  whileHover={{
-    x: 8,
-    color: "#b08d57"
-  }}
-  transition={{ duration: 0.2 }}
-  className="flex items-center gap-2 text-sm text-gray-600"
->
-            <FileText className="w-4 h-4" />
-            How it works
-            </motion.a>
-
-          <motion.a
-  href="#"
-  whileHover={{
-    x: 8,
-    color: "#b08d57"
-  }}
-  transition={{ duration: 0.2 }}
-  className="flex items-center gap-2 text-sm text-gray-600"
->
-            <Search className="w-4 h-4" />
-            Pricing
-            </motion.a>
-
-          <motion.a
-  href="#"
-  whileHover={{
-    x: 8,
-    color: "#b08d57"
-  }}
-  transition={{ duration: 0.2 }}
-  className="flex items-center gap-2 text-sm text-gray-600"
->
-            <Sparkles className="w-4 h-4" />
-            Premium Tools
-            </motion.a>
-
+          <button onClick={() => setMobile(!mobile)} className="p-2 text-gray-700 hover:text-black md:hidden" aria-label="Toggle menu">
+            {mobile ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
       </div>
 
-
-      {/* Sign In */}
-     <motion.a
-  href="/login"
-  whileHover={{
-    x: 8,
-    color: "#b08d57"
-  }}
-  transition={{ duration: 0.2 }}
-  className="flex items-center gap-2 text-sm text-gray-600"
->
-        Sign In
-        </motion.a>
-
-
-      {/* Get Started Button */}
-      <motion.a
-  href="/register"
-  whileHover={{
-    x: 8,
-    color: "#b08d57"
-  }}
-  transition={{ duration: 0.2 }}
-  className="flex items-center gap-2 text-sm text-gray-600"
->
-        Get Started for Free
-        </motion.a>
-
-    </div>
- </motion.div>
-  )}
-</AnimatePresence>
-        </motion.nav>
-    )
-}
+      <AnimatePresence>
+        {mobile && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden border-b border-gray-200 bg-[#f4f4f5] shadow-lg md:hidden">
+            <div className="space-y-4 px-4 py-5">
+              <div className="ml-1 space-y-3 border-l-2 border-[#b08d57] pl-4">
+                {links.map(({ href, label, Icon }) => (
+                  <a key={label} href={href} onClick={() => setMobile(false)} className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#b08d57]"><Icon className="h-4 w-4" />{label}</a>
+                ))}
+              </div>
+              <Link to="/login" className="block text-sm text-gray-700">Sign In</Link>
+              <Link to="/register" className="block rounded-md bg-[#b08d57] px-4 py-2.5 text-center text-sm font-medium text-white">Get Started for Free</Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+};
 
 export default Navbar;

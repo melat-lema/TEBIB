@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { Plane, Fingerprint, Store, Car, Baby, ArrowUpRight } from 'lucide-react';
 import '../../styles/landing.css';
+import Reveal from '../ui/Reveal';
 
 const services = [
   { Icon: Plane, name: 'Passport', am: 'ፓስፖርት', glyph: 'ፓ', covers: 'New, renewal, urgent and lost passports', tags: ['Fees', 'Documents', 'Online portal'] },
@@ -51,18 +52,20 @@ function ServiceCard({ s }: { s: (typeof services)[number] }) {
 
 const ServicesCarousel = () => (
   <section id="services" className="overflow-hidden bg-white py-24">
-    <div className="mx-auto mb-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+    <Reveal from="left" className="mx-auto mb-12 max-w-7xl px-4 sm:px-6 lg:px-8">
       <h2 className="max-w-xl text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">Five services, answered properly.</h2>
       <p className="mt-3 max-w-lg text-base text-gray-600">Pick one to see its fees, documents and steps. Hover the row to stop it.</p>
-    </div>
+    </Reveal>
 
-    <div className="tb-marquee-wrap py-4">
-      <div className="tb-marquee">
-        {[...services, ...services, ...services, ...services].map((s, i) => (
-          <ServiceCard key={i} s={s} />
-        ))}
+    <Reveal from="right" distance={160} amount={0.1}>
+      <div className="tb-marquee-wrap py-4">
+        <div className="tb-marquee">
+          {[...services, ...services, ...services, ...services].map((s, i) => (
+            <ServiceCard key={i} s={s} />
+          ))}
+        </div>
       </div>
-    </div>
+    </Reveal>
   </section>
 );
 

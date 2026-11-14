@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
 
 /* Landing typography: Manrope for Latin text, Noto Sans Ethiopic for Amharic (the browser picks per character) */
 .tb-font { font-family: 'Manrope', 'Noto Sans Ethiopic', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -34,3 +33,7 @@
 .tb-caret::after { content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 2px; background: #b08d57; vertical-align: -0.12em; animation: tb-blink 1s steps(1) infinite; }
 @keyframes tb-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .tb-caret::after { animation: none; } }
+
+html { scroll-behavior: smooth; }
+section[id] { scroll-margin-top: 80px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
