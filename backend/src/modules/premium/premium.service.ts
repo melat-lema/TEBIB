@@ -53,8 +53,28 @@ export class PremiumService {
     return data ?? null;
   }
 
+  /**
+   * Repairs missed activations: (1) payments marked completed that have no pass yet (for example the pass table was
+   * missing at that moment), (2) recent unfinished payments, in case the person closed the tab before returning.
+   */
+  private async healPasses(userId: string) {
+    try {
+      const { data: done } = await supabase.from('payments').select('*').eq('user_id', userId).eq('service_type', 'subscription_30d').eq('status', 'completed').limit(10);
+      for (const p of done ?? []) {
+        const has = await supabase.from('subscriptions').select('id').eq('payment_id', p.id).maybeSingle();
+        if (!has.data && !has.error) await this.grantPass(p).catch((e) => this.logger.warn(`heal grantPass failed: ${e?.message ?? e}`));
+      }
+      const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
+      const { data: open } = await supabase.from('payments').select('chapa_reference').eq('user_id', userId).eq('service_type', 'subscription_30d').eq('status', 'pending').gte('created_at', since).order('created_at', { ascending: false }).limit(3);
+      for (const p of open ?? []) await this.verifyAndFulfill(p.chapa_reference, userId).catch(() => undefined);
+    } catch (error) {
+      this.logger.warn(`healPasses skipped: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
   /** Everything the user-facing "My usage" card and the premium panel need. */
   async me(user: AuthUser) {
+    await this.healPasses(user.id);
     const c = premiumConfig();
     const sub = await this.activeSubscription(user.id);
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();

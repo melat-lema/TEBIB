@@ -58,7 +58,8 @@ export class AdminService {
       const { count } = await supabase.from('knowledge_base').select('id', { count: 'exact', head: true }).eq('status', status);
       return count ?? 0;
     };
-    const [approved, pending, rejected, archived] = await Promise.all(STATUSES.map(countBy));
+    // STATUSES is ['pending', 'approved', 'rejected', 'archived']: read the results in the same order
+    const [pending, approved, rejected, archived] = await Promise.all(STATUSES.map(countBy));
 
     const { count: updatesPending } = await supabase
       .from('knowledge_base')
