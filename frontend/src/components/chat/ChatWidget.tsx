@@ -1,4 +1,3 @@
-// src/components/chat/ChatWidget.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Bot, User, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';

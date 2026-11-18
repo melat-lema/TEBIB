@@ -1,23 +1,27 @@
 // src/components/hero/Hero.tsx
-import { lazy, Suspense, useState } from 'react';
-import { motion } from 'framer-motion';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import BackgroundBlobs from './BackgroundBlobs';
 import HeroContent from './HeroContent';
 import ScrollIndicator from './ScrollIndicator';
 
-// Start downloading the 3D code immediately (in parallel with everything else) instead of when it is first drawn
+// Start downloading the 3D code immediately, in parallel with everything else
 const loadCanvas = () => import('./HeroCanvas');
 loadCanvas();
 const HeroCanvas = lazy(loadCanvas);
 
-const EASE = [0.22, 1, 0.36, 1] as const;
-
 export default function Hero() {
-  // The text never waits for the 3D. The 3D slides in from the right the moment its scene is complete.
-  const [sceneReady, setSceneReady] = useState(false);
+  // Both sides stay hidden until the 3D scene is complete, then arrive TOGETHER:
+  // text from the left, 3D from the right. The CSS for this is in landing.css.
+  const [ready, setReady] = useState(false);
+
+  // If the 3D is slow or WebGL is unavailable, show the page anyway after a short wait
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 2200);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
+    <section data-ready={ready} className="hero-stage relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
       <BackgroundBlobs />
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-14 pt-20 sm:px-6 lg:px-8">
@@ -26,16 +30,11 @@ export default function Hero() {
             <HeroContent />
           </div>
 
-          <motion.div
-            className="order-1 h-[440px] w-full lg:order-2 lg:h-[640px]"
-            initial={{ opacity: 0, x: 120 }}
-            animate={sceneReady ? { opacity: 1, x: 0 } : { opacity: 0, x: 120 }}
-            transition={{ duration: 1, ease: EASE }}
-          >
+          <div className="hero-right order-1 h-[440px] w-full lg:order-2 lg:h-[640px]">
             <Suspense fallback={null}>
-              <HeroCanvas onReady={() => setSceneReady(true)} />
+              <HeroCanvas onReady={() => setReady(true)} />
             </Suspense>
-          </motion.div>
+          </div>
         </div>
       </div>
 

@@ -98,11 +98,11 @@ export default function Register() {
       toast.error(error.message);
       setLoading(false);
     } else if (data.session) {
-      // email confirmation is off: the user is already signed in
+
       toast.success(t.registerSuccess);
       setTimeout(() => navigate('/dashboard'), 800);
     } else {
-      // email confirmation is on: the session starts after they click the link
+      
       toast.info(t.confirmEmail, { autoClose: 8000 });
       setLoading(false);
     }

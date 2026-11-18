@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import img from '../assets/Logo.png';
 import ChatWidget from '../components/chat/ChatWidget';
+import MyUsage from '../components/premium/MyUsage';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/landing.css'; // loads the Ethiopic font used in the banner
 
@@ -353,6 +354,7 @@ export default function Dashboard() {
 
           {/* Side panels */}
           <aside className="space-y-6">
+            <MyUsage lang={lang} />
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
               <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-900">
                 <ShieldCheck className="h-4 w-4 text-green-600" /> {t.recent}

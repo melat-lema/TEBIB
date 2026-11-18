@@ -206,6 +206,8 @@ export default function Review() {
               <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <p className="mb-1 text-xs font-semibold text-gray-500">Quote from the source</p>
                 <p className="border-l-2 border-[#b08d57] pl-3 text-sm italic text-gray-700">{evidence ? `“${evidence}”` : 'No quote stored'}</p>
+                {current.metadata?.note && <p className="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-900">Note: {current.metadata.note}</p>}
+                {current.metadata?.kind === 'starter' && <p className="mt-2 text-xs text-gray-500">Read from the official page on {current.metadata.verified_on} and summarised. Open the source link to double-check before approving.</p>}
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                   <span>{current.source_details}</span>
                   {current.metadata?.effective_date && <span>Effective: {current.metadata.effective_date}</span>}

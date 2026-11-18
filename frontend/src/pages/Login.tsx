@@ -59,7 +59,6 @@ export default function Login() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  // Already signed in (or just back from Google): go straight to the dashboard
   useEffect(() => {
     if (!authLoading && user) navigate('/dashboard', { replace: true });
   }, [authLoading, user, navigate]);

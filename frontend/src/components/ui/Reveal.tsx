@@ -1,5 +1,3 @@
-// src/components/ui/Reveal.tsx
-// Scroll-in motion: slides in from the left, right, bottom or top once, when it enters the screen.
 import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 

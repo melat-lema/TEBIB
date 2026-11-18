@@ -212,7 +212,7 @@ function Globe({ speed }: { speed: number }) {
     const basePts: THREE.Vector3[] = [];
     const goldPts: THREE.Vector3[] = [];
 
-    const N = 3400;
+    const N = 2300;
     const golden = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < N; i++) {
       const y = 1 - (i / (N - 1)) * 2;
@@ -255,7 +255,7 @@ function Globe({ speed }: { speed: number }) {
   return (
     <group ref={spin} rotation={[0, -THREE.MathUtils.degToRad(40), 0]}>
       <mesh>
-        <sphereGeometry args={[R * 0.995, 64, 64]} />
+        <sphereGeometry args={[R * 0.995, 48, 48]} />
         <meshPhysicalMaterial color="#f6efe1" roughness={0.36} metalness={0} clearcoat={0.7} clearcoatRoughness={0.3} sheen={0.6} sheenColor="#fff4dc" />
       </mesh>
       <primitive object={baseMesh} />
@@ -518,7 +518,7 @@ function Scene({ drag, onReady }: { drag: MutableRefObject<Drag>; onReady: () =>
 
   useFrame((state) => {
     // tell the page the scene is complete (fonts loaded, card textures built, a few frames drawn)
-    if (fonts && frames.current < 4 && ++frames.current === 4) onReady();
+    if (fonts && frames.current < 3 && ++frames.current === 3) onReady();
     if (!root.current) return;
     const d = drag.current;
     if (!d.active) d.yaw *= 0.97; // springs back after you let go
@@ -608,7 +608,7 @@ export default function HeroCanvas({ onReady }: { onReady?: () => void }) {
       onPointerCancel={() => (drag.current.active = false)}
     >
       <Boundary>
-        <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [0, 0.6, 11.4], fov: 35 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}>
+        <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [0, 0.6, 11.4], fov: 35 }} dpr={[1, 1.25]} gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}>
           <Scene drag={drag} onReady={announce} />
         </Canvas>
       </Boundary>

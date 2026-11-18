@@ -1,7 +1,7 @@
 // src/pages/AdminDashboard.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, ClipboardCheck, Database, Globe2, Activity, BarChart3, LogOut, Menu, X, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, ClipboardCheck, Database, Globe2, Activity, BarChart3, LogOut, Menu, X, ExternalLink, Stethoscope } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch, adminLogout } from '../lib/adminApi';
 import Overview from './admin/Overview';
@@ -10,6 +10,7 @@ import KnowledgeBase from './admin/KnowledgeBase';
 import Sources from './admin/Sources';
 import Logs from './admin/Logs';
 import Analytics from './admin/Analytics';
+import Diagnostics from './admin/Diagnostics';
 
 const TABS = [
   { id: 'overview', label: 'Overview', Icon: LayoutDashboard },
@@ -17,7 +18,8 @@ const TABS = [
   { id: 'knowledge', label: 'Knowledge base', Icon: Database },
   { id: 'sources', label: 'Sources', Icon: Globe2 },
   { id: 'logs', label: 'Scraper logs', Icon: Activity },
-  { id: 'analytics', label: 'Usage', Icon: BarChart3 },
+  { id: 'analytics', label: 'Usage & revenue', Icon: BarChart3 },
+  { id: 'diagnostics', label: 'System check', Icon: Stethoscope },
 ] as const;
 
 export default function AdminDashboard() {
@@ -102,6 +104,7 @@ export default function AdminDashboard() {
           {tab === 'sources' && <Sources />}
           {tab === 'logs' && <Logs />}
           {tab === 'analytics' && <Analytics />}
+          {tab === 'diagnostics' && <Diagnostics />}
         </main>
       </div>
     </div>

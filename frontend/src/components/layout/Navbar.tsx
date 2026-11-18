@@ -16,13 +16,12 @@ const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
 
-  // No slide-in animation on the bar itself: it is simply there from the first frame.
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-[#f4f4f5]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center">
-            {/* multiply makes the logo's off-white background vanish into the bar */}
+            
             <img src={img} alt="ጠቢብ Logo" className="h-12 w-auto object-contain " />
           </Link>
 

@@ -1,4 +1,3 @@
-// src/components/sections/ServicesCarousel.tsx
 import { Link } from 'react-router-dom';
 import { Plane, Fingerprint, Store, Car, Baby, ArrowUpRight } from 'lucide-react';
 import '../../styles/landing.css';
@@ -18,7 +17,7 @@ function ServiceCard({ s }: { s: (typeof services)[number] }) {
       to="/register"
       className="tb-service-card group relative block h-[16.5rem] w-[17.5rem] overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-6 outline-none transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#b08d57]/15 focus-visible:-translate-y-2"
     >
-      {/* the first Ge'ez letter of the service name, as a watermark */}
+      
       <span
         aria-hidden
         className="font-ethiopic pointer-events-none absolute -bottom-10 -right-3 select-none text-[8.5rem] font-bold leading-none text-[#b08d57]/10 transition-all duration-500 group-hover:-translate-y-2 group-hover:text-[#b08d57]/20"

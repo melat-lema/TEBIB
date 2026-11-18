@@ -1,11 +1,9 @@
-// src/components/sections/WhyChooseUs.tsx
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useInView, useScroll, useTransform } from 'framer-motion';
 import { ShieldCheck, FileSearch, UserCheck, Rocket, Languages, HelpCircle } from 'lucide-react';
 import '../../styles/landing.css';
 import Reveal from '../ui/Reveal';
 
-// ---------------------------------------------------------------- 1. bilingual chat demo
 const demo = {
   en: { q: 'How much is a new passport?', a: 'A new or renewed passport costs 5,000 ETB. Confirm with ICS before you go.', tag: 'EN' },
   am: { q: 'አዲስ ፓስፖርት ስንት ነው?', a: 'አዲስ ወይም የታደሰ ፓስፖርት 5,000 ብር ነው። ከመሄድዎ በፊት ከICS ያረጋግጡ።', tag: 'አማ' },
@@ -65,7 +63,6 @@ function ChatDemo({ active }: { active: boolean }) {
   );
 }
 
-// ---------------------------------------------------------------- 2. pipeline that fills as you scroll
 const pipeline = [
   { Icon: FileSearch, title: 'Collected from official sources', text: 'Government websites and announcement channels are checked on a schedule.' },
   { Icon: UserCheck, title: 'Reviewed by a person', text: 'Every extracted fact is compared with its source quote before it is approved.' },
@@ -97,7 +94,6 @@ function Pipeline() {
   );
 }
 
-// ---------------------------------------------------------------- 3. counters
 function Counter({ to, label }: { to: number; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-20%' });
@@ -124,7 +120,7 @@ function Counter({ to, label }: { to: number; label: string }) {
   );
 }
 
-// ---------------------------------------------------------------- section
+
 const item = {
   hidden: (dir: 'left' | 'right') => ({ opacity: 0, x: dir === 'left' ? -110 : 110 }),
   show: { opacity: 1, x: 0, transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] as const } },
@@ -135,7 +131,6 @@ export default function WhyChooseUs() {
   const chatRef = useRef<HTMLDivElement>(null);
   const chatActive = useInView(chatRef, { margin: '-15%' });
 
-  // The one scroll-driven moment: the word ጠቢብ drifts sideways behind the cards
   const { scrollYProgress } = useScroll({ target: section, offset: ['start end', 'end start'] });
   const x = useTransform(scrollYProgress, [0, 1], ['6%', '-28%']);
 
@@ -170,14 +165,14 @@ export default function WhyChooseUs() {
             </div>
           </motion.div>
 
-          {/* B: pipeline */}
+      
           <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="right" className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
             <h3 className="text-xl font-semibold text-gray-900">Every answer has a trail</h3>
             <p className="mt-2 text-sm text-gray-500">How a fact reaches you.</p>
             <Pipeline />
           </motion.div>
 
-          {/* C: numbers */}
+       
           <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="left" className="rounded-[2rem] border border-gray-200 bg-white p-8 lg:col-span-5 lg:p-10">
             <div className="grid grid-cols-2 gap-6">
               <Counter to={5} label="core services covered" />
@@ -188,7 +183,7 @@ export default function WhyChooseUs() {
             </p>
           </motion.div>
 
-          {/* D: honest about gaps */}
+   
           <motion.div variants={item} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} custom="right" className="relative overflow-hidden rounded-[2rem] border border-[#b08d57]/30 bg-gradient-to-br from-[#b08d57] to-[#8c6b42] p-8 text-white lg:col-span-7 lg:p-10">
             <HelpCircle className="absolute -bottom-6 -right-4 h-44 w-44 text-white/10" strokeWidth={1.2} />
             <div className="relative max-w-lg">

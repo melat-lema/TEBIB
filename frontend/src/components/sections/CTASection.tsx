@@ -1,5 +1,3 @@
-// src/components/sections/CTASection.tsx
-// Full-width dark band (clearly different from the white "How it works" above it).
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Reveal from '../ui/Reveal';

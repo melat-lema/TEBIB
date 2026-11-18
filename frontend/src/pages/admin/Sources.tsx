@@ -57,10 +57,21 @@ export default function Sources() {
     }
   };
 
+  const loadStarter = async () => {
+    try {
+      const r = await adminFetch('/starter-facts', { method: 'POST' });
+      toast.success(`${r.added} added to the Review queue${r.skipped ? `, ${r.skipped} were already there` : ''}.`);
+      if (r.missingServices?.length) toast.warn(`No service named: ${r.missingServices.join(', ')}`);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const run = async (id: string) => {
     try {
       const r = await adminFetch('/scraper/run', { method: 'POST', body: { sourceId: id } });
-      toast[r.started ? 'success' : 'info'](r.started ? 'Run started. See Scraper logs in a minute.' : r.reason);
+      toast[r.started ? 'success' : 'info'](r.started ? 'Run started. The result appears on this card in a moment.' : r.reason);
+      if (r.started) [6000, 20000, 45000].forEach((ms) => setTimeout(load, ms));
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -100,6 +111,14 @@ export default function Sources() {
         <button className={btn.primary} onClick={() => setForm(blank)}><Plus className="h-4 w-4" /> Add source</button>
       </PageTitle>
 
+      <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div>
+          <h2 className="font-semibold text-gray-900">Starter facts</h2>
+          <p className="text-sm text-gray-500">14 facts read from official pages (Fayda, Addis Ababa DVLCA, ICS, e-Trade). They go to the Review queue as pending: nothing is published until you approve it.</p>
+        </div>
+        <button className={btn.primary} onClick={loadStarter}>Load starter facts</button>
+      </Card>
+
       <ImportCard goReview={() => setParams({ tab: 'review' })} />
 
       {form && (
@@ -112,7 +131,7 @@ export default function Sources() {
               <option value="website">Website</option><option value="telegram">Telegram channel</option>
             </select>
             <select className={inputCls} value={form.fetch_method} onChange={(e) => setForm({ ...form, fetch_method: e.target.value })}>
-              <option value="html">HTML page</option><option value="wordpress_api">WordPress API (JSON)</option><option value="telegram_preview">Telegram preview</option>
+              <option value="html">One HTML page</option><option value="html_index">Index page + every page it links to</option><option value="wordpress_api">WordPress API (JSON)</option><option value="telegram_preview">Telegram preview</option>
             </select>
             <input className={inputCls} placeholder="CSS selector (optional, HTML only)" value={form.css_selector} onChange={(e) => setForm({ ...form, css_selector: e.target.value })} />
             <select className={inputCls} value={form.service_id} onChange={(e) => setForm({ ...form, service_id: e.target.value })}>
@@ -152,6 +171,12 @@ export default function Sources() {
                   </div>
                   <a href={s.url} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 truncate text-xs text-[#8c6b42] hover:underline"><Link2 className="h-3 w-3" />{s.url}</a>
                   <p className="mt-1 text-xs text-gray-500">Checked {timeAgo(s.last_checked_at)} · content changed {timeAgo(s.last_changed_at)}</p>
+                  {s.lastRun && (
+                    <p className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                      <b>Last run ({timeAgo(s.lastRun.ranAt)}):</b> {s.lastRun.status}. {s.lastRun.items} items read, <b>{s.lastRun.saved} new facts</b>
+                      {s.lastRun.items > 0 && s.lastRun.saved === 0 ? ` — nothing new because: ${s.lastRun.unchanged} unchanged since the last run, ${s.lastRun.notRelevant} not relevant or too old, ${s.lastRun.duplicates} duplicates, ${s.lastRun.rejected} rejected by checks` : ''}.
+                    </p>
+                  )}
                   {s.last_error && <p className="mt-2 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800">Last error: {s.last_error}</p>}
                   {s.notes && <p className="mt-1 text-xs italic text-gray-500">{s.notes}</p>}
                 </div>

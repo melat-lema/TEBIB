@@ -1,5 +1,3 @@
-// src/components/sections/HowItWorks.tsx
-// White section, three big numbered steps joined by a gold line that draws itself as you scroll.
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import Reveal from '../ui/Reveal';

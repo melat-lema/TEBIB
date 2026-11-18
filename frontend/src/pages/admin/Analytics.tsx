@@ -66,12 +66,14 @@ export default function Analytics() {
       <Card className="mt-6 p-5">
         <div className="flex items-center gap-3">
           <Wallet className="h-5 w-5 text-[#b08d57]" />
-          <h2 className="font-semibold text-gray-900">Premium revenue (Application Packs)</h2>
+          <h2 className="font-semibold text-gray-900">Tebib Plus (monthly pass)</h2>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div><p className="text-2xl font-bold text-gray-900">{a.revenue?.payments ?? 0}</p><p className="text-sm text-gray-500">packs sold</p></div>
-          <div><p className="text-2xl font-bold text-gray-900">{(a.revenue?.last30Etb ?? 0).toLocaleString()} ETB</p><p className="text-sm text-gray-500">last 30 days</p></div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div><p className="text-2xl font-bold text-gray-900">{a.revenue?.activeSubscribers ?? 0}</p><p className="text-sm text-gray-500">active subscribers</p></div>
+          <div><p className="text-2xl font-bold text-gray-900">{a.revenue?.subscriptionsSold ?? 0}</p><p className="text-sm text-gray-500">passes sold, all time</p></div>
+          <div><p className="text-2xl font-bold text-gray-900">{(a.revenue?.last30Etb ?? 0).toLocaleString()} ETB</p><p className="text-sm text-gray-500">revenue, last 30 days</p></div>
           <div><p className="text-2xl font-bold text-gray-900">{(a.revenue?.totalEtb ?? 0).toLocaleString()} ETB</p><p className="text-sm text-gray-500">all time (before Chapa fees)</p></div>
+          <div><p className="text-2xl font-bold text-gray-900">{a.revenue?.packsThisMonth ?? 0}</p><p className="text-sm text-gray-500">packs created this month</p></div>
         </div>
       </Card>
     </>
