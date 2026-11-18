@@ -17,9 +17,15 @@ export class PremiumController {
   }
 
   @UseGuards(UserGuard)
+  @Get('me')
+  me(@Req() req: any) {
+    return this.premium.me(req.user);
+  }
+
+  @UseGuards(UserGuard)
   @Post('checkout')
-  checkout(@Req() req: any, @Body() body: any) {
-    return this.premium.checkout(req.user, body);
+  checkout(@Req() req: any) {
+    return this.premium.checkout(req.user);
   }
 
   @UseGuards(UserGuard)
@@ -28,7 +34,7 @@ export class PremiumController {
     return this.premium.verifyAndFulfill(txRef, req.user.id);
   }
 
-  // Optional: set this URL as the webhook in the Chapa dashboard. It only triggers a server-side verify, it grants nothing by itself.
+  // Optional Chapa webhook: it only triggers a server-side verify and grants nothing by itself.
   @Post('webhook')
   async webhook(@Body() body: any) {
     const ref = String(body?.tx_ref ?? body?.trx_ref ?? '');
@@ -41,6 +47,12 @@ export class PremiumController {
     const ref = String(txRef ?? trxRef ?? '');
     if (ref) await this.premium.verifyAndFulfill(ref).catch(() => undefined);
     return { received: true };
+  }
+
+  @UseGuards(UserGuard)
+  @Post('packs')
+  createPack(@Req() req: any, @Body() body: any) {
+    return this.premium.createPack(req.user, body);
   }
 
   @UseGuards(UserGuard)

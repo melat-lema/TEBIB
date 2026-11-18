@@ -2,11 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { supabase } from '../../config/supabase.config';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 
-/**
- * VERIFIED = checked against a source (see `source`).
- * UNVERIFIED = carried over from the old seed; confirm with the office before trusting it.
- * Amharic text is a clean rewrite and still needs review by a native speaker.
- */
 const SEED_DATA = [
   {
     serviceName: 'Passport Services',

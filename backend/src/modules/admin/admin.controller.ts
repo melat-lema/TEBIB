@@ -83,6 +83,16 @@ export class AdminController {
     return this.admin.importText(body);
   }
 
+  @Get('diagnostics')
+  diagnostics() {
+    return this.admin.diagnostics();
+  }
+
+  @Post('starter-facts')
+  starterFacts() {
+    return this.admin.loadStarterFacts();
+  }
+
   @Post('scraper/run')
   run(@Body() body: { sourceId?: string; types?: string[] }) {
     return this.admin.runScraper(body);

@@ -89,39 +89,28 @@ Rules:
     };
   }
 
-  /** Builds the pack for a completed payment. Safe to call twice: one pack per payment. */
-  async generateForPayment(payment: any): Promise<string | null> {
-    const existing = await supabase.from('premium_packs').select('id').eq('payment_id', payment.id).maybeSingle();
-    if (existing.data) return existing.data.id;
-
-    const language: 'en' | 'am' = payment.metadata?.language === 'am' ? 'am' : 'en';
-    const answers = payment.metadata?.answers ?? {};
-    const { data: service } = await supabase.from('services').select('id, name_en, name_am').eq('id', payment.service_id).single();
+  /** Builds one pack from verified facts for a subscriber. */
+  async generate(input: { userId: string; serviceId: string; language: 'en' | 'am'; answers: any; subscriptionId: string }): Promise<string> {
+    const { data: service } = await supabase.from('services').select('id, name_en, name_am').eq('id', input.serviceId).single();
     const { data: facts } = await supabase
       .from('knowledge_base')
       .select('chunk_text, chunk_text_am, category, source_details, source_url, last_verified_at')
-      .eq('service_id', payment.service_id)
+      .eq('service_id', input.serviceId)
       .eq('status', 'approved')
       .order('last_verified_at', { ascending: false })
       .limit(30);
     if (!service || !facts?.length) throw new Error('No verified facts available for this service');
 
-    const raw = await this.ai.generateJson(this.buildPrompt(service, facts, language, answers));
+    const raw = await this.ai.generateJson(this.buildPrompt(service, facts, input.language, input.answers));
     const content = this.sanitize(raw, facts);
     if (!content.checklist.length && !content.steps.length) throw new Error('The generated pack was empty');
 
     const { data, error } = await supabase
       .from('premium_packs')
-      .insert([{ user_id: payment.user_id, payment_id: payment.id, service_id: payment.service_id, language, answers, content }])
+      .insert([{ user_id: input.userId, subscription_id: input.subscriptionId, service_id: input.serviceId, language: input.language, answers: input.answers, content }])
       .select('id')
       .single();
-    if (error) {
-      if (error.code === '23505') {
-        const again = await supabase.from('premium_packs').select('id').eq('payment_id', payment.id).single();
-        return again.data?.id ?? null;
-      }
-      throw error;
-    }
+    if (error) throw error;
     return data.id;
   }
 }

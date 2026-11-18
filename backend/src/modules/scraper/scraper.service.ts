@@ -23,7 +23,7 @@ export interface ScrapeResult {
 }
 
 export type SourceType = 'website' | 'telegram';
-export type FetchMethod = 'wordpress_api' | 'html' | 'telegram_preview';
+export type FetchMethod = 'wordpress_api' | 'html' | 'html_index' | 'telegram_preview';
 
 export interface SourceRow {
   id: string;
@@ -60,7 +60,7 @@ interface Item {
 export interface ItemTrace {
   url: string;
   title?: string;
-  outcome: 'unchanged' | 'not_relevant' | 'no_facts' | 'saved' | 'failed';
+  outcome: 'unchanged' | 'not_relevant' | 'too_old' | 'no_facts' | 'saved' | 'failed';
   chars: number;
   found: number;
   saved: number;
@@ -427,11 +427,73 @@ export class ScraperService {
     return [{ text: result.content, itemUrl: src.url, title: result.title, pageHash: result.contentHash }];
   }
 
-  private async collectItems(src: SourceRow): Promise<Item[]> {
+  /**
+   * Index crawl: open a listing page (for example https://ics.gov.et/information/), then read every page it
+   * links to under the same path. This is how a whole "information center" becomes many readable items.
+   */
+  private async collectHtmlIndex(src: SourceRow, limit?: number): Promise<Item[]> {
+    const html = await this.fetchText(src.url);
+    const $ = cheerio.load(html);
+    const base = new URL(src.url);
+    const scope = src.css_selector && $(src.css_selector).length ? $(src.css_selector) : $('body');
+
+    const links = new Map<string, string>();
+    scope.find('a[href]').each((_: number, a: any) => {
+      try {
+        const u = new URL($(a).attr('href') as string, base);
+        u.hash = '';
+        u.search = '';
+        const same = u.hostname === base.hostname && u.pathname.startsWith(base.pathname) && u.pathname !== base.pathname;
+        if (same && !/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(u.pathname)) links.set(u.toString(), $(a).text().trim());
+      } catch {
+        /* ignore bad links */
+      }
+    });
+
+    const max = limit ?? Math.max(1, Number(process.env.SCRAPER_INDEX_MAX ?? 40));
+    const items: Item[] = [];
+    let firstError = '';
+    for (const [url, label] of [...links].slice(0, max)) {
+      const page = await this.scrapeWebsite(url);
+      if (page.success && page.content.length > 80) {
+        items.push({ text: page.title ? `${page.title}\n${page.content}` : page.content, itemUrl: url, title: page.title || label });
+      } else if (!firstError) {
+        firstError = page.error ?? 'page had no readable text';
+      }
+      await this.sleep(500);
+    }
+    if (!links.size) throw new Error(`No links under ${base.pathname} were found on ${src.url}. The page may be built with JavaScript.`);
+    if (!items.length) throw new Error(`Found ${links.size} linked pages but none could be read. First problem: ${firstError}`);
+    return items;
+  }
+
+  private async collectItems(src: SourceRow, limit?: number): Promise<Item[]> {
     const method: FetchMethod = src.fetch_method ?? (src.source_type === 'telegram' ? 'telegram_preview' : 'html');
+    if (method === 'html_index') return this.collectHtmlIndex(src, limit);
     if (method === 'wordpress_api') return this.collectWordPress(src);
     if (method === 'telegram_preview') return this.collectTelegram(src);
     return this.collectHtml(src);
+  }
+
+  /** Plain connectivity check used by the admin System Check page. */
+  async probeUrl(url: string) {
+    const started = Date.now();
+    try {
+      await this.refreshHosts(true);
+      try {
+        const u = new URL(url);
+        if (['http:', 'https:'].includes(u.protocol) && !this.isPrivateHost(u.hostname.toLowerCase())) this.dbHosts.add(u.hostname.toLowerCase());
+      } catch {
+        return { ok: false, error: 'Invalid URL' };
+      }
+      const robotsOk = await this.robotsAllows(url);
+      if (!robotsOk) return { ok: false, robots: false, error: 'robots.txt does not allow this bot (TebibBot) to read this URL', ms: Date.now() - started };
+      const res = await axios.get(url, { timeout: 12000, responseType: 'text', validateStatus: () => true, maxContentLength: 3 * 1024 * 1024, headers: { 'User-Agent': UA, 'Accept-Language': 'am,en;q=0.8' } });
+      const text = cheerio.load(String(res.data)).root().text().replace(/\s+/g, ' ').trim();
+      return { ok: res.status === 200, robots: true, status: res.status, words: text.split(' ').filter(Boolean).length, ms: Date.now() - started, error: res.status === 200 ? undefined : `HTTP ${res.status}` };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error), ms: Date.now() - started };
+    }
   }
 
   /** Dry run for the admin panel: fetch + extract text, no Gemini calls, nothing saved. */
@@ -460,7 +522,7 @@ export class ScraperService {
       return { ok: false, error: 'This URL is not allowed (invalid, or a private network address).' };
     }
     try {
-      const items = await this.collectItems(src);
+      const items = await this.collectItems(src, 5);
       const rows = items.slice(0, 20).map((i) => ({
         title: i.title ?? '',
         url: i.itemUrl,
@@ -554,6 +616,7 @@ export class ScraperService {
     const names = this.services.map((s) => `"${s.name_en}"`).join(', ') || '"Passport Services", "Kebele ID & Vital Events", "Business License Registration", "Driving License", "Birth Certificate"';
     return `You extract facts for a public-service information app used by Ethiopian citizens.
 Source: ${url}
+Today's date: ${new Date().toISOString().slice(0, 10)}
 ${title ? `Title: ${title}\n` : ''}${serviceHint ? `This source is about the service: ${serviceHint}\n` : ''}
 Return a JSON array. Each item has exactly these fields:
 - "service": the best match from [${names}], or null if none fits
@@ -568,7 +631,8 @@ Rules:
 2. Keep only facts a citizen can act on: fees, required documents, application steps, where or how to apply, deadlines, processing times, contact numbers, and changes to a service (new online portal, new requirement, new fee).
 3. One fact per item. Split lists and tables into separate items (one fee per item, one required document per item).
 4. Ignore meetings, visits, appointments, workshops, ceremonies, statistics and opinions.
-5. If the text contains no such facts, return [].
+5. Ignore announcements about deadlines, extensions or periods that have already ended, and anything that applies only to a past period (for example a past fiscal year).
+6. If the text contains no such facts, return [].
 
 Text:
 """
@@ -603,6 +667,15 @@ ${text.substring(0, 6500)}
     const itemHash = this.sha(text);
     const trace: ItemTrace = { url: itemUrl, title, outcome: 'no_facts', chars: text.length, found: 0, saved: 0 };
     if (stats.trace.length < 60) stats.trace.push(trace);
+
+    // 0. Old news-style items are skipped: their deadlines and fees are usually out of date
+    const maxAge = Number(process.env.SCRAPER_MAX_AGE_DAYS ?? 400);
+    const srcMethod: FetchMethod = src.fetch_method ?? (src.source_type === 'telegram' ? 'telegram_preview' : 'html');
+    if (maxAge > 0 && srcMethod !== 'html' && srcMethod !== 'html_index' && publishedAt && Date.now() - new Date(publishedAt).getTime() > maxAge * 86_400_000) {
+      stats.itemsNotRelevant++;
+      trace.outcome = 'too_old';
+      return;
+    }
 
     // 1. Same content already processed? Skip (no Gemini call)
     const { data: seen } = await supabase

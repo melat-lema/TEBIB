@@ -33,7 +33,7 @@ export class AppService {
       found: results.length, 
       results: results.map(r => ({ 
         text: r.chunk_text, 
-        similarity: r.similarity.toFixed(4) // Show how close the match was
+        similarity: r.similarity.toFixed(4)
       })) 
     };
   }

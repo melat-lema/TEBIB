@@ -4,11 +4,13 @@ import * as crypto from 'crypto';
 import { supabase } from '../../config/supabase.config';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 import { ScraperService } from '../scraper/scraper.service';
+import { AiService } from '../ai/ai.service';
+import { STARTER_FACTS } from './starter-facts';
 
 const PAGE_SIZE = 25;
 const STATUSES = ['pending', 'approved', 'rejected', 'archived'];
 const SOURCE_TYPES = ['website', 'telegram'];
-const FETCH_METHODS = ['wordpress_api', 'html', 'telegram_preview'];
+const FETCH_METHODS = ['wordpress_api', 'html', 'html_index', 'telegram_preview'];
 const TRUST_LEVELS = ['official', 'secondary'];
 const CATEGORIES = ['fee', 'requirement', 'step', 'contact', 'office', 'deadline', 'update', 'other'];
 
@@ -23,6 +25,7 @@ export class AdminService {
   constructor(
     private readonly knowledge: KnowledgeService,
     private readonly scraper: ScraperService,
+    private readonly ai: AiService,
   ) {}
 
   // ------------------------------------------------------------------ auth
@@ -142,12 +145,20 @@ export class AdminService {
       gaps.set(q, (gaps.get(q) ?? 0) + 1);
     }
 
-    const { data: pays } = await supabase.from('payments').select('amount, completed_at').eq('status', 'completed');
+    const { data: pays } = await supabase.from('payments').select('amount, completed_at, service_type').eq('status', 'completed');
     const paid = pays ?? [];
+    const subsRes = await supabase.from('subscriptions').select('user_id, ends_at');
+    const subs = subsRes.error ? [] : subsRes.data ?? [];
+    const nowIso = new Date().toISOString();
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+    const { count: packsMonth } = await supabase.from('premium_packs').select('id', { count: 'exact', head: true }).gte('created_at', monthStart);
     const revenue = {
       payments: paid.length,
       totalEtb: paid.reduce((a: number, p: any) => a + Number(p.amount ?? 0), 0),
       last30Etb: paid.filter((p: any) => p.completed_at && p.completed_at >= since).reduce((a: number, p: any) => a + Number(p.amount ?? 0), 0),
+      activeSubscribers: new Set(subs.filter((s: any) => s.ends_at > nowIso).map((s: any) => s.user_id)).size,
+      subscriptionsSold: subs.length,
+      packsThisMonth: packsMonth ?? 0,
     };
 
     return {
@@ -330,7 +341,26 @@ export class AdminService {
   async listSources() {
     const { data, error } = await supabase.from('scrape_sources').select('*, services(name_en)').order('created_at', { ascending: true });
     if (error) throw new BadRequestException(error.message);
-    return (data ?? []).map((s: any) => ({ ...s, service_name: s.services?.name_en ?? null, services: undefined }));
+    const { data: logs } = await supabase
+      .from('scraper_logs')
+      .select('source_name, status, ran_at, messages_fetched, updates_made, error_message, details')
+      .order('ran_at', { ascending: false })
+      .limit(300);
+    const lastByName = new Map<string, any>();
+    for (const l of logs ?? []) if (!lastByName.has(l.source_name)) lastByName.set(l.source_name, l);
+
+    return (data ?? []).map((s: any) => {
+      const l = lastByName.get(s.name);
+      const d = l?.details ?? {};
+      return {
+        ...s,
+        service_name: s.services?.name_en ?? null,
+        services: undefined,
+        lastRun: l
+          ? { status: l.status, ranAt: l.ran_at, items: l.messages_fetched ?? 0, saved: l.updates_made ?? 0, unchanged: d.unchanged ?? 0, notRelevant: d.not_relevant ?? 0, rejected: d.rejected ?? 0, duplicates: d.duplicates ?? 0, error: l.error_message }
+          : null,
+      };
+    });
   }
 
   private cleanSource(body: any, partial: boolean) {
@@ -388,6 +418,102 @@ export class AdminService {
     const { error } = await supabase.from('scrape_sources').delete().eq('id', id);
     if (error) throw new BadRequestException(error.message);
     return { id, deleted: true };
+  }
+
+  /** Loads the facts in starter-facts.ts as PENDING so an admin can review them. Safe to click twice. */
+  async loadStarterFacts() {
+    const { data: services } = await supabase.from('services').select('id, name_en');
+    const byName = new Map((services ?? []).map((s: any) => [s.name_en, s.id]));
+    let added = 0;
+    let skipped = 0;
+    const missingServices = new Set<string>();
+
+    for (const f of STARTER_FACTS) {
+      const serviceId = byName.get(f.service);
+      if (!serviceId) {
+        missingServices.add(f.service);
+        continue;
+      }
+      try {
+        await this.knowledge.addKnowledgeChunk(serviceId, f.en, f.am ?? '', f.url.includes('t.me') ? 'telegram' : 'website', f.label, {
+          status: 'pending',
+          sourceUrl: f.url,
+          category: f.category,
+          trustLevel: 'official',
+          contentHash: crypto.createHash('sha256').update(f.en.replace(/\s+/g, ' ').toLowerCase()).digest('hex'),
+          metadata: { kind: 'starter', verified_on: '2026-11-17', note: f.note ?? null, service: f.service },
+        });
+        added++;
+      } catch (error: any) {
+        if (error?.code === '23505') skipped++;
+        else throw new BadRequestException(error?.message ?? 'Could not add a starter fact');
+      }
+    }
+    return { added, skipped, missingServices: [...missingServices] };
+  }
+
+  /** One screen that tells you what is wrong, instead of guessing. */
+  async diagnostics() {
+    type Check = { id: string; label: string; status: 'ok' | 'warn' | 'fail'; detail: string; fix?: string };
+    const checks: Check[] = [];
+    const add = (id: string, label: string, status: Check['status'], detail: string, fix?: string) => checks.push({ id, label, status, detail, fix });
+
+    // environment
+    add('gemini', 'GEMINI_API_KEY', process.env.GEMINI_API_KEY ? 'ok' : 'fail', process.env.GEMINI_API_KEY ? 'Set' : 'Missing', 'Add GEMINI_API_KEY to the backend .env and restart.');
+    add('sburl', 'SUPABASE_URL', process.env.SUPABASE_URL ? 'ok' : 'fail', process.env.SUPABASE_URL ? 'Set' : 'Missing', 'Add SUPABASE_URL to the backend .env.');
+    let role = 'unknown';
+    try {
+      role = JSON.parse(Buffer.from(String(process.env.SUPABASE_KEY).split('.')[1], 'base64url').toString()).role;
+    } catch {
+      /* not a JWT */
+    }
+    add('sbkey', 'SUPABASE_KEY role', role === 'service_role' ? 'ok' : 'fail', `The key in SUPABASE_KEY has role "${role}"`, role === 'service_role' ? undefined : 'The backend must use the service_role key (Supabase > Project Settings > API > service_role). With the anon key, security rules hide rows such as pending facts from the backend.');
+    add('anon', 'SUPABASE_ANON_KEY', process.env.SUPABASE_ANON_KEY ? 'ok' : 'warn', process.env.SUPABASE_ANON_KEY ? 'Set' : 'Not set (admin login falls back to SUPABASE_KEY)', 'Add the anon key as SUPABASE_ANON_KEY.');
+    add('chapa', 'CHAPA_SECRET_KEY', process.env.CHAPA_SECRET_KEY ? 'ok' : 'warn', process.env.CHAPA_SECRET_KEY ? 'Set' : 'Not set: premium payments are off', 'Add CHAPA_SECRET_KEY (test key first) and restart.');
+    add('front', 'FRONTEND_URL', process.env.FRONTEND_URL ? 'ok' : 'warn', process.env.FRONTEND_URL ?? 'Not set (defaults to http://localhost:5173)', 'Set FRONTEND_URL to your website address so payments return to the right place.');
+
+    // database shape
+    const probe = async (id: string, table: string, cols: string, file: string) => {
+      const { error } = await supabase.from(table).select(cols).limit(1);
+      add(id, `${table}: ${cols}`, error ? 'fail' : 'ok', error ? error.message : 'Present', error ? `Run ${file} in the Supabase SQL Editor.` : undefined);
+    };
+    await probe('kb', 'knowledge_base', 'category,supersedes_id,trust_level,last_verified_at', 'sql/01_migration.sql');
+    await probe('logs', 'scraper_logs', 'details', 'sql/01_migration.sql');
+    await probe('src', 'scrape_sources', 'trust_level,last_error', 'sql/01_migration.sql');
+    await probe('chat', 'chat_history', 'answered', 'sql/04_unanswered_tracking.sql');
+    await probe('subs', 'subscriptions', 'id,ends_at', 'sql/06_subscription_and_sources.sql');
+    await probe('packs', 'premium_packs', 'subscription_id', 'sql/06_subscription_and_sources.sql');
+
+    const zero = Array(768).fill(0);
+    for (const fn of ['match_documents', 'match_documents_any']) {
+      const { error } = await supabase.rpc(fn, { query_embedding: zero, match_threshold: 2, match_count: 1 });
+      add(`rpc_${fn}`, `Function ${fn}`, error ? 'fail' : 'ok', error ? error.message : 'Works', error ? 'Run sql/01_migration.sql (match_documents_any) or check your match_documents function.' : undefined);
+    }
+
+    // the review queue: why does the badge differ from the list?
+    const { count } = await supabase.from('knowledge_base').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+    const list = await supabase.from('knowledge_base').select('id, services(name_en)').eq('status', 'pending').limit(300);
+    add('pending', 'Review queue', list.error ? 'fail' : (count ?? 0) === (list.data?.length ?? 0) ? 'ok' : 'warn', list.error ? `The list query fails: ${list.error.message}` : `${count ?? 0} pending facts, list returns ${list.data?.length ?? 0}`, list.error ? 'Run sql/01_migration.sql, then refresh the Review queue.' : undefined);
+
+    // Gemini
+    try {
+      await this.ai.generateEmbedding('connection test', 'query');
+      add('gemini_call', 'Gemini call', 'ok', 'An embedding request worked');
+    } catch (e: any) {
+      add('gemini_call', 'Gemini call', 'fail', String(e?.message ?? e).slice(0, 200), 'Check the API key, billing and quota in Google AI Studio.');
+    }
+
+    // sources
+    const { data: sources } = await supabase.from('scrape_sources').select('name, url, is_active').order('created_at', { ascending: true }).limit(12);
+    const probes = await Promise.all((sources ?? []).map((s: any) => this.scraper.probeUrl(s.url).then((p: any) => ({ s, p }))));
+    for (const { s, p } of probes) {
+      const thin = p.ok && typeof p.words === 'number' && p.words < 80;
+      add(`source_${s.name}`, `Source: ${s.name}${s.is_active ? '' : ' (inactive)'}`, p.ok ? (thin ? 'warn' : 'ok') : 'fail',
+        p.ok ? `HTTP ${p.status}, ${p.words} words of text, ${p.ms} ms${thin ? ' (very little text: the page may need JavaScript)' : ''}` : `${p.error}${p.ms ? ` (${p.ms} ms)` : ''}`,
+        p.ok ? undefined : p.robots === false ? 'The site forbids bots. Ask the owner for permission or use another source.' : 'Open the URL in a browser. If it works there, the server running the backend may be blocked or offline.');
+    }
+
+    return { ranAt: new Date().toISOString(), checks };
   }
 
   testSource(body: any) {
