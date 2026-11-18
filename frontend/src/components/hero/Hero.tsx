@@ -24,7 +24,7 @@ export default function Hero() {
     <section data-ready={ready} className="hero-stage relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
       <BackgroundBlobs />
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-14 pt-20 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-14 pt-15 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[1fr_1.15fr] lg:gap-8">
           <div className="order-2 lg:order-1">
             <HeroContent />

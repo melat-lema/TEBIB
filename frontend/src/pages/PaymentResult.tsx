@@ -13,6 +13,7 @@ export default function PaymentResult() {
   const [view, setView] = useState<View>('checking');
   const [message, setMessage] = useState('');
   const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [attemptKey, setAttemptKey] = useState(0);
 
   useEffect(() => {
     if (!txRef) {
@@ -21,6 +22,7 @@ export default function PaymentResult() {
       return;
     }
     let cancelled = false;
+    setView('checking');
     (async () => {
       for (let attempt = 0; attempt < 24 && !cancelled; attempt++) {
         try {
@@ -52,7 +54,7 @@ export default function PaymentResult() {
     return () => {
       cancelled = true;
     };
-  }, [txRef, navigate]);
+  }, [txRef, navigate, attemptKey]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f4f4f5] px-4">
@@ -70,7 +72,9 @@ export default function PaymentResult() {
           {view === 'failed' && 'You were not charged. You can try again from any service page.'}
           {view === 'error' && message}
         </p>
-        {(view === 'failed' || view === 'error') && <Link to="/dashboard" className="mt-6 inline-block rounded-xl bg-[#b08d57] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#8c6b42]">Back to dashboard</Link>}
+        {view === 'error' && txRef && <p className="mt-3 break-all rounded bg-gray-50 p-2 text-xs text-gray-500">Reference: {txRef}</p>}
+        {view === 'error' && <button onClick={() => setAttemptKey((k) => k + 1)} className="mt-4 mr-2 inline-block rounded-xl border border-[#b08d57] px-5 py-2.5 text-sm font-semibold text-[#8c6b42] hover:bg-[#b08d57]/10">Try again</button>}
+        {(view === 'failed' || view === 'error') && <Link to="/dashboard" className="mt-4 inline-block rounded-xl bg-[#b08d57] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#8c6b42]">Back to dashboard</Link>}
       </div>
     </div>
   );
