@@ -1,8 +1,10 @@
+// src/components/chat/ChatWidget.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Bot, User, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { API_URL } from '../../lib/config';
+import SimpleMarkdown from './SimpleMarkdown';
 
 interface Source {
   text: string;
@@ -219,9 +221,9 @@ export default function ChatWidget({ lang = 'en' }: { lang?: 'en' | 'am' }) {
                     {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
                   <div className="max-w-[80%] space-y-2">
-                    <div className={`whitespace-pre-wrap rounded-2xl p-3 text-sm leading-relaxed ${bubble(msg)}`}>
+                    <div className={`${msg.role === 'user' ? 'whitespace-pre-wrap ' : ''}rounded-2xl p-3 text-sm leading-relaxed ${bubble(msg)}`}>
                       {msg.isError && <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />}
-                      {msg.text || (msg.streaming ? <span className="text-gray-400">{t.thinking}</span> : null)}
+                      {msg.text ? (msg.role === 'ai' && !msg.isError ? <div className="min-w-0"><SimpleMarkdown text={msg.text} /></div> : msg.text) : msg.streaming ? <span className="text-gray-400">{t.thinking}</span> : null}
                       {msg.streaming && msg.text && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-[#b08d57] align-middle" />}
                     </div>
 
