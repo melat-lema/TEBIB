@@ -83,6 +83,11 @@ export class AdminController {
     return this.admin.importText(body);
   }
 
+  @Get('scraper/status')
+  scraperStatus() {
+    return this.admin.scraperStatus();
+  }
+
   @Get('diagnostics')
   diagnostics() {
     return this.admin.diagnostics();

@@ -33,8 +33,10 @@ export class KnowledgeService {
     } = {},
   ) {
     try {
-      const embedding = await this.aiService.generateEmbedding(chunkText, 'doc');
-      const embeddingAm = chunkTextAm ? await this.aiService.generateEmbedding(chunkTextAm, 'doc') : null;
+      const [embedding, embeddingAm] = await Promise.all([
+        this.aiService.generateEmbedding(chunkText, 'doc'),
+        chunkTextAm ? this.aiService.generateEmbedding(chunkTextAm, 'doc') : Promise.resolve(null),
+      ]);
       const status = extra.status ?? 'approved'; // manual seed stays live; the scraper passes 'pending'
 
       const { data, error } = await supabase

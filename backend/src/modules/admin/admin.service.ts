@@ -425,15 +425,15 @@ export class AdminService {
   async loadStarterFacts() {
     const { data: services } = await supabase.from('services').select('id, name_en');
     const byName = new Map((services ?? []).map((s: any) => [s.name_en, s.id]));
+    const missingServices = new Set<string>();
     let added = 0;
     let skipped = 0;
-    const missingServices = new Set<string>();
 
-    for (const f of STARTER_FACTS) {
+    const insertOne = async (f: (typeof STARTER_FACTS)[number]) => {
       const serviceId = byName.get(f.service);
       if (!serviceId) {
         missingServices.add(f.service);
-        continue;
+        return;
       }
       try {
         await this.knowledge.addKnowledgeChunk(serviceId, f.en, f.am ?? '', f.url.includes('t.me') ? 'telegram' : 'website', f.label, {
@@ -449,8 +449,17 @@ export class AdminService {
         if (error?.code === '23505') skipped++;
         else throw new BadRequestException(error?.message ?? 'Could not add a starter fact');
       }
+    };
+
+    // a few at a time: much faster than one by one, and gentle on the AI rate limit
+    for (let i = 0; i < STARTER_FACTS.length; i += 4) {
+      await Promise.all(STARTER_FACTS.slice(i, i + 4).map(insertOne));
     }
     return { added, skipped, missingServices: [...missingServices] };
+  }
+
+  scraperStatus() {
+    return this.scraper.status();
   }
 
   /** One screen that tells you what is wrong, instead of guessing. */
@@ -495,6 +504,22 @@ export class AdminService {
     const { count } = await supabase.from('knowledge_base').select('id', { count: 'exact', head: true }).eq('status', 'pending');
     const list = await supabase.from('knowledge_base').select('id, services(name_en)').eq('status', 'pending').limit(300);
     add('pending', 'Review queue', list.error ? 'fail' : (count ?? 0) === (list.data?.length ?? 0) ? 'ok' : 'warn', list.error ? `The list query fails: ${list.error.message}` : `${count ?? 0} pending facts, list returns ${list.data?.length ?? 0}`, list.error ? 'Run sql/01_migration.sql, then refresh the Review queue.' : undefined);
+
+    // Does the chatbot search return facts that nobody has approved yet?
+    try {
+      const { data: pend } = await supabase.from('knowledge_base').select('chunk_text, embedding').eq('status', 'pending').not('embedding', 'is', null).limit(1);
+      if (!pend?.length) {
+        add('leak', 'Chat only uses approved facts', 'ok', 'No pending facts to test with right now');
+      } else {
+        const emb = typeof pend[0].embedding === 'string' ? JSON.parse(pend[0].embedding) : pend[0].embedding;
+        const { data: hits, error } = await supabase.rpc('match_documents', { query_embedding: emb, match_threshold: 0.95, match_count: 5 });
+        if (error) add('leak', 'Chat only uses approved facts', 'warn', `Could not test: ${error.message}`);
+        else if ((hits ?? []).some((h: any) => h.chunk_text === pend[0].chunk_text)) add('leak', 'Chat only uses approved facts', 'fail', 'An unreviewed (pending) fact was returned by the chatbot search', 'Run sql/08_approved_only_search.sql in the Supabase SQL Editor.');
+        else add('leak', 'Chat only uses approved facts', 'ok', 'Pending facts are not returned to the chatbot');
+      }
+    } catch (e: any) {
+      add('leak', 'Chat only uses approved facts', 'warn', `Could not test: ${String(e?.message ?? e).slice(0, 160)}`);
+    }
 
     // Gemini
     try {

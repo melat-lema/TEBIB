@@ -93,6 +93,10 @@ const WORD_NUM: Record<string, string> = {
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
   private isRunning = false;
+  private progress = {
+    running: false, startedAt: 0, sourceName: '', sourcesDone: 0, sourcesTotal: 0, itemsDone: 0, itemsTotal: 0, savedTotal: 0,
+    lastFinished: null as null | { at: string; saved: number; sources: number; seconds: number },
+  };
   private services: Array<{ id: string; name_en: string }> = [];
 
   // Hosts that may be fetched: built-in + SCRAPER_ALLOWED_HOSTS (comma list) + hosts of rows in scrape_sources.
@@ -108,6 +112,11 @@ export class ScraperService {
 
   get busy() {
     return this.isRunning;
+  }
+
+  /** Live progress for the admin panel. */
+  status() {
+    return { ...this.progress, elapsedSec: this.progress.running ? Math.floor((Date.now() - this.progress.startedAt) / 1000) : 0 };
   }
 
   private cronEnabled(): boolean {
@@ -848,6 +857,9 @@ ${text.substring(0, 6500)}
     let errorMessage: string | null = null;
 
     this.logger.log(`▶️  Source: ${src.name}`);
+    this.progress.sourceName = src.name;
+    this.progress.itemsDone = 0;
+    this.progress.itemsTotal = 0;
 
     if (!this.isAllowedUrl(src.url)) {
       status = 'failed';
@@ -855,11 +867,15 @@ ${text.substring(0, 6500)}
     } else {
       try {
         const items = await this.collectItems(src);
+        this.progress.itemsTotal = items.length;
         if (!items.length) {
           status = 'empty';
           errorMessage = 'The source returned no items. Test it in Admin → Sources.';
         }
-        for (const item of items) await this.processItem(src, stats, item);
+        for (const item of items) {
+          await this.processItem(src, stats, item);
+          this.progress.itemsDone++;
+        }
 
         const pageHash = items[0]?.pageHash;
         if (pageHash) {
@@ -883,6 +899,8 @@ ${text.substring(0, 6500)}
       .update({ last_checked_at: new Date().toISOString(), last_error: status === 'failed' || status === 'empty' ? errorMessage : null })
       .eq('id', src.id);
     await this.logRun(src, stats, status, errorMessage, startedAt);
+    this.progress.sourcesDone++;
+    this.progress.savedTotal += stats.factsSaved;
 
     const { trace, rejectedSamples, ...counts } = stats;
     return { source: src.name, status, error: errorMessage, ...counts, rejectedSamples: rejectedSamples.slice(0, 5) };
@@ -944,6 +962,7 @@ ${text.substring(0, 6500)}
     }
 
     this.isRunning = true;
+    this.progress = { ...this.progress, running: true, startedAt: Date.now(), sourceName: '', sourcesDone: 0, sourcesTotal: 0, itemsDone: 0, itemsTotal: 0, savedTotal: 0 };
     this.logger.log('🚀 Starting scraping pipeline...');
 
     try {
@@ -959,6 +978,7 @@ ${text.substring(0, 6500)}
       }
       const { data: sources, error } = await query;
       if (error) throw error;
+      this.progress.sourcesTotal = sources?.length ?? 0;
 
       if (!sources?.length) {
         this.logger.warn('No matching sources in scrape_sources.');
@@ -972,6 +992,8 @@ ${text.substring(0, 6500)}
       return { results };
     } finally {
       this.isRunning = false;
+      this.progress.running = false;
+      this.progress.lastFinished = { at: new Date().toISOString(), saved: this.progress.savedTotal, sources: this.progress.sourcesDone, seconds: Math.round((Date.now() - this.progress.startedAt) / 1000) };
     }
   }
 }

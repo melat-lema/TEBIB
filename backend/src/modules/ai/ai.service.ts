@@ -59,7 +59,7 @@ export class AiService {
 Use ONLY the following context to answer the user's question.
 CRITICAL: Answer ONLY what the user specifically asked. If they ask for a fee, state ONLY the fee. Do not list unrelated requirements unless explicitly asked.
 If the context does not contain the answer, say you do not have verified information and suggest checking with the relevant office.
-Keep the answer short. Use a short list only when the answer has several separate items.
+Keep the answer short. Write plain text only: do not use markdown symbols such as asterisks, hash signs or backticks. For several separate items, put each on its own line starting with a dash.
 
 Context:
 ${context}
