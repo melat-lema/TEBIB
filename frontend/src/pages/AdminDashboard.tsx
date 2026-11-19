@@ -1,5 +1,6 @@
 // src/pages/AdminDashboard.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LayoutDashboard, ClipboardCheck, Database, Globe2, Activity, BarChart3, LogOut, Menu, X, ExternalLink, Stethoscope } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -28,6 +29,8 @@ export default function AdminDashboard() {
   const tab = (params.get('tab') ?? 'overview') as (typeof TABS)[number]['id'];
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
+  const [scraper, setScraper] = useState<any>(null);
+  const wasRunning = useRef(false);
 
   const user = (() => {
     try {
@@ -46,6 +49,31 @@ export default function AdminDashboard() {
   useEffect(() => {
     adminFetch('/stats').then((s) => setPending(s.knowledge.pending)).catch(() => undefined);
   }, [tab]);
+
+  // Live scraper progress: polls a tiny endpoint every 3 seconds and announces when a run finishes
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const s = await adminFetch('/scraper/status');
+        if (!alive) return;
+        setScraper(s);
+        if (wasRunning.current && !s.running && s.lastFinished) {
+          toast.success(`Scraper finished in ${s.lastFinished.seconds}s: ${s.lastFinished.saved} new fact${s.lastFinished.saved === 1 ? '' : 's'} from ${s.lastFinished.sources} source${s.lastFinished.sources === 1 ? '' : 's'}.`, { autoClose: 9000 });
+          adminFetch('/stats').then((st) => setPending(st.knowledge.pending)).catch(() => undefined);
+        }
+        wasRunning.current = !!s.running;
+      } catch {
+        /* the next tick tries again */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 3000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const logout = async () => {
     await supabase.auth.signOut().catch(() => undefined);
@@ -96,6 +124,21 @@ export default function AdminDashboard() {
           <button onClick={() => setOpen(true)} aria-label="Open menu"><Menu className="h-6 w-6 text-gray-700" /></button>
           <span className="ml-3 font-semibold text-gray-900">{TABS.find((t) => t.id === tab)?.label}</span>
         </header>
+
+        {scraper?.running && (
+          <div className="border-b border-[#b08d57]/30 bg-[#b08d57]/10 px-4 py-2.5 sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[#5c4524]">
+              <span className="font-semibold">Scraper running · {scraper.sourceName || 'starting…'}</span>
+              <span>
+                source {Math.min(scraper.sourcesDone + 1, scraper.sourcesTotal || 1)} of {scraper.sourcesTotal || '…'}
+                {scraper.itemsTotal ? ` · page ${scraper.itemsDone}/${scraper.itemsTotal}` : ''} · {scraper.elapsedSec}s
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#b08d57]/20">
+              <div className="h-full rounded-full bg-[#b08d57] transition-all duration-700" style={{ width: `${Math.min(100, Math.round(((scraper.sourcesDone + (scraper.itemsTotal ? scraper.itemsDone / scraper.itemsTotal : 0)) / (scraper.sourcesTotal || 1)) * 100))}%` }} />
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {tab === 'overview' && <Overview goTo={go} />}

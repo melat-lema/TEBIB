@@ -57,13 +57,18 @@ export default function Sources() {
     }
   };
 
+  const [starterBusy, setStarterBusy] = useState(false);
+
   const loadStarter = async () => {
+    setStarterBusy(true);
     try {
       const r = await adminFetch('/starter-facts', { method: 'POST' });
       toast.success(`${r.added} added to the Review queue${r.skipped ? `, ${r.skipped} were already there` : ''}.`);
       if (r.missingServices?.length) toast.warn(`No service named: ${r.missingServices.join(', ')}`);
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setStarterBusy(false);
     }
   };
 
@@ -116,7 +121,7 @@ export default function Sources() {
           <h2 className="font-semibold text-gray-900">Starter facts</h2>
           <p className="text-sm text-gray-500">14 facts read from official pages (Fayda, Addis Ababa DVLCA, ICS, e-Trade). They go to the Review queue as pending: nothing is published until you approve it.</p>
         </div>
-        <button className={btn.primary} onClick={loadStarter}>Load starter facts</button>
+        <button className={btn.primary} onClick={loadStarter} disabled={starterBusy}>{starterBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> Loading… about 15 seconds</> : 'Load starter facts'}</button>
       </Card>
 
       <ImportCard goReview={() => setParams({ tab: 'review' })} />
