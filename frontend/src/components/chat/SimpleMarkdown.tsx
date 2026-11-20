@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-// Leftover markers (for example an unfinished **bold** while the answer is still streaming) are hidden, never shown as stars.
 const clean = (s: string) => s.replace(/\*\*/g, '').replace(/`/g, '');
 
 function inline(text: string): ReactNode[] {
@@ -18,7 +17,6 @@ function inline(text: string): ReactNode[] {
   return out;
 }
 
-/** Small, safe renderer for the AI's answers: bold, bullet lists, numbered lists, paragraphs. No HTML is ever injected. */
 export default function SimpleMarkdown({ text }: { text: string }) {
   const lines = text.replace(/\r/g, '').split('\n');
   const blocks: ReactNode[] = [];

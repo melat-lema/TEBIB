@@ -1,4 +1,3 @@
-// src/pages/AdminDashboard.tsx
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate, useSearchParams } from 'react-router-dom';

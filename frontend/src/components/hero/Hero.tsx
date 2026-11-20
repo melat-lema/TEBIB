@@ -1,10 +1,8 @@
-// src/components/hero/Hero.tsx
 import { lazy, Suspense, useEffect, useState } from 'react';
 import BackgroundBlobs from './BackgroundBlobs';
 import HeroContent from './HeroContent';
 import ScrollIndicator from './ScrollIndicator';
 
-// Start downloading the 3D code immediately, in parallel with everything else
 const loadCanvas = () => import('./HeroCanvas');
 loadCanvas();
 const HeroCanvas = lazy(loadCanvas);
