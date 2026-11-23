@@ -440,7 +440,7 @@ export class AdminService {
           status: 'pending',
           sourceUrl: f.url,
           category: f.category,
-          trustLevel: 'official',
+          trustLevel: f.trust ?? 'official',
           contentHash: crypto.createHash('sha256').update(f.en.replace(/\s+/g, ' ').toLowerCase()).digest('hex'),
           metadata: { kind: 'starter', verified_on: '2026-11-17', note: f.note ?? null, service: f.service },
         });
@@ -481,6 +481,17 @@ export class AdminService {
     add('anon', 'SUPABASE_ANON_KEY', process.env.SUPABASE_ANON_KEY ? 'ok' : 'warn', process.env.SUPABASE_ANON_KEY ? 'Set' : 'Not set (admin login falls back to SUPABASE_KEY)', 'Add the anon key as SUPABASE_ANON_KEY.');
     add('chapa', 'CHAPA_SECRET_KEY', process.env.CHAPA_SECRET_KEY ? 'ok' : 'warn', process.env.CHAPA_SECRET_KEY ? 'Set' : 'Not set: premium payments are off', 'Add CHAPA_SECRET_KEY (test key first) and restart.');
     add('front', 'FRONTEND_URL', process.env.FRONTEND_URL ? 'ok' : 'warn', process.env.FRONTEND_URL ?? 'Not set (defaults to http://localhost:5173)', 'Set FRONTEND_URL to your website address so payments return to the right place.');
+
+    // Google sign-in
+    try {
+      const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: String(process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_KEY) } });
+      const s: any = await r.json();
+      const on = !!s?.external?.google;
+      add('google', 'Google sign-in (Supabase)', on ? 'ok' : 'fail', on ? 'The Google provider is enabled' : 'The Google provider is switched OFF in Supabase, so "Continue with Google" fails',
+        on ? undefined : 'Supabase > Authentication > Sign In / Providers > Google: turn it on and paste the Client ID and Client Secret from Google Cloud (OAuth client type: Web).');
+    } catch (e: any) {
+      add('google', 'Google sign-in (Supabase)', 'warn', `Could not check: ${String(e?.message ?? e).slice(0, 120)}`);
+    }
 
     // database shape
     const probe = async (id: string, table: string, cols: string, file: string) => {

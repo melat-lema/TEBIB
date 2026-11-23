@@ -1,4 +1,8 @@
-
+/**
+ * Starter facts, read from official pages on 2026-11-17 and written in my own words.
+ * They are loaded as PENDING: an admin must approve each one in Review. Nothing here goes live by itself.
+ * Birth certificate has none, because I could not read an official source for it.
+ */
 export interface StarterFact {
   service: string; // must equal services.name_en
   category: 'fee' | 'requirement' | 'step' | 'contact' | 'office' | 'deadline' | 'update' | 'other';
@@ -7,9 +11,69 @@ export interface StarterFact {
   url: string;
   label: string;
   note?: string;
+  trust?: 'official' | 'secondary'; // secondary = news, guides, international organisations
 }
 
 export const STARTER_FACTS: StarterFact[] = [
+  // ---- Kebele ID & Vital Events: the two ID systems side by side ----
+  {
+    service: 'Kebele ID & Vital Events', category: 'requirement',
+    en: 'To register for Fayda, accepted proof of identity includes a Kebele ID, passport, birth certificate, business license and many other documents that show your photo. A person with none of these can register through a witness who is already registered in Fayda.',
+    url: 'https://id.gov.et/proof', label: 'National ID Program: accepted documents (id.gov.et)',
+  },
+  {
+    service: 'Kebele ID & Vital Events', category: 'update', trust: 'secondary',
+    en: 'In Addis Ababa, the resident (kebele) ID card is issued by the Addis Ababa Civil Registration and Residency Service Agency. After the city linked its registration system with Fayda, it stopped collecting separate biometric data for the resident card, and the newest card design includes the Fayda registration number.',
+    url: 'https://addisfortune.news/addis-ababa-integrates-fayda-national-digital-id-into-residency-cards', label: 'Addis Fortune (news report)',
+    note: 'News report, not an official notice. Confirm the current process with the Addis Ababa Civil Registration and Residency Service Agency or your woreda office.',
+  },
+  {
+    service: 'Kebele ID & Vital Events', category: 'fee', trust: 'secondary',
+    en: 'A May 2026 report says the Fayda card and the Addis Ababa kebele (resident) card are separate cards that are paid for separately.',
+    url: 'https://addisfortune.news/addis-abeba-promises-an-id-card-in-a-day-for-triple-the-fee', label: 'Addis Fortune (news report)',
+    note: 'News report. No fee amounts were captured. Confirm fees with the issuing office.',
+  },
+
+  // ---- Business License: general procedure from guides (secondary) ----
+  {
+    service: 'Business License Registration', category: 'step', trust: 'secondary',
+    en: 'Business registration and licensing in Ethiopia are available online through the e-Trade portal, and most procedures can be completed there.',
+    url: 'https://www.2merkato.com/articles/starting-a-business/139-business-registration-and-licensing-procedures-in-ethiopia', label: '2Merkato business guide',
+    note: 'A business guide, not a government page. Confirm on etrade.gov.et.',
+  },
+  {
+    service: 'Business License Registration', category: 'requirement', trust: 'secondary',
+    en: 'A sole proprietor registering a business needs a Taxpayer Identification Number (TIN), plus a trade name registration if the person wants a trade name.',
+    url: 'https://www.2merkato.com/articles/starting-a-business/139-business-registration-and-licensing-procedures-in-ethiopia', label: '2Merkato business guide',
+    note: 'A business guide, not a government page. Confirm on etrade.gov.et.',
+  },
+  {
+    service: 'Business License Registration', category: 'step', trust: 'secondary',
+    en: 'To get a business license you submit an application to the relevant authority, pay the service fee, and meet any other requirements set by the law that applies to your business.',
+    url: 'https://www.2merkato.com/articles/starting-a-business/139-business-registration-and-licensing-procedures-in-ethiopia', label: '2Merkato business guide',
+    note: 'A business guide, not a government page. Fee amounts were not captured.',
+  },
+  {
+    service: 'Business License Registration', category: 'requirement', trust: 'secondary',
+    en: 'Documents commonly needed for a business license are the commercial registration certificate, the TIN certificate, and any other documents specific to your type of business.',
+    url: 'https://support.chapa.co/knowledge-base/45-how-to-get-a-business-license-in-ethiopia', label: 'Chapa support guide',
+    note: 'A third-party guide that points to the Ethiopian Business Portal. Confirm the current list with the trade office.',
+  },
+
+  // ---- Birth Certificate (secondary: UNICEF civil registration profile) ----
+  {
+    service: 'Birth Certificate', category: 'office', trust: 'secondary',
+    en: 'In Ethiopia, births are registered by the Vital Events Registration Agency under Proclamation No. 760/2012, and the system is decentralised, so you register at your local vital events office.',
+    url: 'https://data.unicef.org/crvs/ethiopia/', label: 'UNICEF civil registration profile for Ethiopia',
+    note: 'UNICEF\'s profile may rely on older research. Confirm with your local vital events office.',
+  },
+  {
+    service: 'Birth Certificate', category: 'requirement', trust: 'secondary',
+    en: 'UNICEF lists these requirements for birth registration: the identification cards of the mother and father, the name of the child, and both parents being present in person unless there is a justified reason.',
+    url: 'https://data.unicef.org/crvs/ethiopia/', label: 'UNICEF civil registration profile for Ethiopia',
+    note: 'May be out of date. The older seed text mentions a hospital birth notification and a 30-day window; neither was confirmed. Check with the office.',
+  },
+
   // ---- Kebele ID & Vital Events (Fayda national digital ID) ----
   {
     service: 'Kebele ID & Vital Events', category: 'step',
