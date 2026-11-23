@@ -36,7 +36,20 @@ export class PremiumService {
     if (!UUID_RE.test(serviceId)) throw new BadRequestException('Invalid service');
     const { count } = await supabase.from('knowledge_base').select('id', { count: 'exact', head: true }).eq('service_id', serviceId).eq('status', 'approved');
     const { minFacts } = premiumConfig();
-    return { facts: count ?? 0, minFacts, eligible: (count ?? 0) >= minFacts };
+    const eligible = (count ?? 0) >= minFacts;
+    return { facts: count ?? 0, minFacts, eligible, available: eligible ? [] : await this.availableServices() };
+  }
+
+  /** Services that already have enough verified facts for a pack. */
+  private async availableServices() {
+    const { minFacts } = premiumConfig();
+    const { data: rows } = await supabase.from('knowledge_base').select('service_id').eq('status', 'approved').not('service_id', 'is', null);
+    const tally = new Map<string, number>();
+    for (const r of rows ?? []) tally.set(r.service_id, (tally.get(r.service_id) ?? 0) + 1);
+    const ids = [...tally].filter(([, n]) => n >= minFacts).map(([id]) => id);
+    if (!ids.length) return [];
+    const { data: services } = await supabase.from('services').select('id, name_en, name_am').in('id', ids);
+    return (services ?? []).map((s: any) => ({ ...s, facts: tally.get(s.id) ?? 0 }));
   }
 
   // ------------------------------------------------------------------ status + personal usage
