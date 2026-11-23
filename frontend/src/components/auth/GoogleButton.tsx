@@ -4,11 +4,25 @@ import { FaGoogle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { supabase } from '../../lib/supabase';
 
-export default function GoogleButton({ label, failedMessage }: { label: string; failedMessage: string }) {
+export default function GoogleButton({ label, failedMessage, notEnabledMessage = 'Google sign-in is not turned on yet. The site owner must enable the Google provider in Supabase (Authentication > Providers > Google).' }: { label: string; failedMessage: string; notEnabledMessage?: string }) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
     setLoading(true);
+    // Ask Supabase first whether Google is enabled, so people never land on a raw JSON error page
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY } });
+      if (res.ok) {
+        const settings = await res.json();
+        if (settings?.external && settings.external.google === false) {
+          toast.error(notEnabledMessage, { autoClose: 9000 });
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      /* could not check: try the normal sign-in */
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
