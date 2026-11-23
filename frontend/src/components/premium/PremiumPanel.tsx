@@ -30,6 +30,7 @@ const copy = {
     create: 'Create my pack',
     creating: 'Preparing your pack…',
     notReady: (f: number, m: number) => `Packs are not available for this service yet. We have ${f} of the ${m} verified facts needed to prepare a reliable one.`,
+    availableNow: 'Available now for:',
     off: 'Payments are being set up. Please check back soon.',
     myPacks: 'Your packs',
     none: 'No packs yet.',
@@ -59,6 +60,7 @@ const copy = {
     create: 'ጥቅሌን አዘጋጅ',
     creating: 'ጥቅልዎን በማዘጋጀት ላይ…',
     notReady: (f: number, m: number) => `ለዚህ አገልግሎት ጥቅሎች ገና አይገኙም። አስተማማኝ ጥቅል ለማዘጋጀት ከሚያስፈልጉት ${m} የተረጋገጡ መረጃዎች ${f} አሉን።`,
+    availableNow: 'አሁን የሚገኝባቸው፡',
     off: 'ክፍያ በመዘጋጀት ላይ ነው። እባክዎ በቅርቡ ይመለሱ።',
     myPacks: 'የእርስዎ ጥቅሎች',
     none: 'ገና ጥቅል የለም።',
@@ -80,7 +82,7 @@ export default function PremiumPanel({ open, onClose, service, lang }: Props) {
 
   const [config, setConfig] = useState<{ monthlyEtb: number; packsPerMonth: number; enabled: boolean } | null>(null);
   const [me, setMe] = useState<any>(null);
-  const [elig, setElig] = useState<{ facts: number; minFacts: number; eligible: boolean } | null>(null);
+  const [elig, setElig] = useState<{ facts: number; minFacts: number; eligible: boolean; available: Array<{ id: string; name_en: string; name_am: string }> } | null>(null);
   const [packs, setPacks] = useState<any[]>([]);
   const [situation, setSituation] = useState('new');
   const [urgency, setUrgency] = useState('normal');
@@ -176,7 +178,19 @@ export default function PremiumPanel({ open, onClose, service, lang }: Props) {
                       <div className="mt-5 space-y-4">
                         <p className="text-xs font-medium text-gray-500">{t.packsLeft(me.packsUsed, me.packsLimit)}</p>
                         {!elig ? null : !elig.eligible ? (
-                          <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />{t.notReady(elig.facts, elig.minFacts)}</p>
+                          <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                            <p className="flex items-start gap-2"><Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />{t.notReady(elig.facts, elig.minFacts)}</p>
+                            {elig.available?.length > 0 && (
+                              <div className="mt-2.5">
+                                <p className="mb-1.5 text-xs font-semibold">{t.availableNow}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {elig.available.map((s) => (
+                                    <button key={s.id} onClick={() => { onClose(); navigate(`/services/${s.id}`); }} className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">{lang === 'am' ? s.name_am : s.name_en}</button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <>
                             <div>

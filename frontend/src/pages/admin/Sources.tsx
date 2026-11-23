@@ -119,7 +119,7 @@ export default function Sources() {
       <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
         <div>
           <h2 className="font-semibold text-gray-900">Starter facts</h2>
-          <p className="text-sm text-gray-500">14 facts read from official pages (Fayda, Addis Ababa DVLCA, ICS, e-Trade). They go to the Review queue as pending: nothing is published until you approve it.</p>
+          <p className="text-sm text-gray-500">23 facts read from official pages and, where none were readable, clearly marked guides and news reports (Fayda, Kebele ID in Addis Ababa, DVLCA, ICS, e-Trade, business licensing, birth registration). They go to the Review queue as pending: nothing is published until you approve it.</p>
         </div>
         <button className={btn.primary} onClick={loadStarter} disabled={starterBusy}>{starterBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> Loading… about 15 seconds</> : 'Load starter facts'}</button>
       </Card>
