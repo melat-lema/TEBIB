@@ -3,7 +3,7 @@ import { Plus, Pencil, Archive, RotateCcw, Search, Loader2, X } from 'lucide-rea
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
 import { adminFetch } from '../../lib/adminApi';
-import { Card, Chip, Empty, PageTitle, btn, inputCls, statusTone, timeAgo, useServices, CATEGORY_OPTIONS } from './ui';
+import { Card, Chip, Empty, PageTitle, Pager, btn, inputCls, statusTone, timeAgo, useServices, CATEGORY_OPTIONS } from './ui';
 
 type Draft = { id?: string; chunk_text: string; chunk_text_am: string; service_id: string; category: string };
 const blank: Draft = { chunk_text: '', chunk_text_am: '', service_id: '', category: 'fee' };
@@ -16,20 +16,21 @@ export default function KnowledgeBase() {
   const [serviceId, setServiceId] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const [size, setSize] = useState(25);
   const [data, setData] = useState<{ rows: any[]; total: number; pageSize: number } | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setData(null);
-    const qs = new URLSearchParams({ status, page: String(page), ...(serviceId ? { serviceId } : {}), ...(q ? { q } : {}) });
+    const qs = new URLSearchParams({ status, page: String(page), pageSize: String(size), ...(serviceId ? { serviceId } : {}), ...(q ? { q } : {}) });
     try {
       setData(await adminFetch(`/knowledge?${qs}`));
     } catch (e: any) {
       toast.error(e.message);
       setData({ rows: [], total: 0, pageSize: 25 });
     }
-  }, [status, serviceId, q, page]);
+  }, [status, serviceId, q, page, size]);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 350 : 0); // debounce typing
@@ -66,8 +67,6 @@ export default function KnowledgeBase() {
   useEffect(() => {
     if (ask) setDraft(blank);
   }, [ask]);
-
-  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
     <>
@@ -124,16 +123,7 @@ export default function KnowledgeBase() {
             </table>
           </div>
         )}
-        {data && data.total > data.pageSize && (
-          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-sm text-gray-600">
-            <span>{data.total} facts</span>
-            <div className="flex items-center gap-2">
-              <button className={btn.ghost} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
-              <span>{page} / {pages}</span>
-              <button className={btn.ghost} disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</button>
-            </div>
-          </div>
-        )}
+        {data && data.total > 0 && <Pager page={page} total={data.total} pageSize={size} onPage={setPage} onSize={(n) => { setSize(n); setPage(1); }} />}
       </Card>
 
       {draft && (

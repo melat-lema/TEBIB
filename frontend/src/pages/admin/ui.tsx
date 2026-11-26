@@ -55,8 +55,9 @@ export function Bars({ data, valueKey, label }: { data: Array<Record<string, any
     <div>
       <div className="flex h-32 items-end gap-1.5">
         {data.map((d) => (
-          <div key={d.date} className="group relative flex-1" title={`${d.date}: ${d[valueKey]} ${label}`}>
-            <div className="w-full rounded-t bg-[#b08d57]/80 transition group-hover:bg-[#b08d57]" style={{ height: `${Math.max(3, (d[valueKey] / max) * 100)}%` }} />
+          // h-full is what makes the percentage height of the bar work (a flex child has no height of its own)
+          <div key={d.date} className="group relative flex h-full flex-1 items-end" title={`${d.date}: ${d[valueKey]} ${label}`}>
+            <div className={`w-full rounded-t transition ${d[valueKey] ? 'bg-[#b08d57]/80 group-hover:bg-[#b08d57]' : 'bg-gray-200'}`} style={{ height: d[valueKey] ? `${Math.max(6, (d[valueKey] / max) * 100)}%` : '3px' }} />
           </div>
         ))}
       </div>
@@ -64,6 +65,35 @@ export function Bars({ data, valueKey, label }: { data: Array<Record<string, any
         <span>{data[0]?.date.slice(5)}</span>
         <span>{data[data.length - 1]?.date.slice(5)}</span>
       </div>
+    </div>
+  );
+}
+
+export function Pager({ page, total, pageSize, onPage, onSize, sizes = [10, 25, 50, 100] }: { page: number; total: number; pageSize: number; onPage: (p: number) => void; onSize?: (n: number) => void; sizes?: number[] }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const from = total ? (page - 1) * pageSize + 1 : 0;
+  const to = Math.min(total, page * pageSize);
+  const nums: Array<number | '…'> = [];
+  for (let p = 1; p <= pages; p++) {
+    if (p === 1 || p === pages || Math.abs(p - page) <= 1) nums.push(p);
+    else if (nums[nums.length - 1] !== '…') nums.push('…');
+  }
+  const cell = 'min-w-[2rem] rounded-md border px-2 py-1 text-sm';
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-600">
+      <span>Showing {from}–{to} of {total}</span>
+      <div className="flex items-center gap-1">
+        <button className={`${cell} border-gray-300 bg-white disabled:opacity-40`} disabled={page <= 1} onClick={() => onPage(page - 1)}>Previous</button>
+        {nums.map((n, i) => n === '…' ? <span key={`e${i}`} className="px-1">…</span> : (
+          <button key={n} onClick={() => onPage(n)} className={`${cell} ${n === page ? 'border-[#b08d57] bg-[#b08d57] font-semibold text-white' : 'border-gray-300 bg-white hover:bg-gray-50'}`}>{n}</button>
+        ))}
+        <button className={`${cell} border-gray-300 bg-white disabled:opacity-40`} disabled={page >= pages} onClick={() => onPage(page + 1)}>Next</button>
+      </div>
+      {onSize && (
+        <label className="flex items-center gap-2">Per page
+          <select className="rounded-md border border-gray-300 bg-white px-2 py-1" value={pageSize} onChange={(e) => onSize(Number(e.target.value))}>{sizes.map((s) => <option key={s}>{s}</option>)}</select>
+        </label>
+      )}
     </div>
   );
 }

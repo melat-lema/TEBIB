@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, X, ExternalLink, Loader2, RefreshCw, ShieldAlert, ArrowRightLeft } from 'lucide-react';
+import { Check, X, ExternalLink, Loader2, RefreshCw, ShieldAlert, ArrowRightLeft, Layers } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { adminFetch } from '../../lib/adminApi';
 import { Card, Chip, Empty, PageTitle, btn, inputCls, timeAgo, useServices, CATEGORY_OPTIONS } from './ui';
@@ -15,6 +15,7 @@ export default function Review() {
   const [edit, setEdit] = useState({ chunk_text: '', chunk_text_am: '', service_id: '', category: '' });
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [similar, setSimilar] = useState<any[] | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -39,6 +40,17 @@ export default function Review() {
     if (current) setEdit({ chunk_text: current.chunk_text ?? '', chunk_text_am: current.chunk_text_am ?? '', service_id: current.service_id ?? '', category: current.category ?? 'other' });
   }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Look for published or waiting facts that say nearly the same thing as the one on screen
+  useEffect(() => {
+    setSimilar(null);
+    if (!current?.id) return;
+    let alive = true;
+    adminFetch(`/pending/${current.id}/similar`).then((r) => alive && setSimilar(r)).catch(() => alive && setSimilar([]));
+    return () => {
+      alive = false;
+    };
+  }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const advance = (id: string) => {
     const idx = visible.findIndex((i) => i.id === id);
     const next = visible[idx + 1] ?? visible[idx - 1] ?? null;
@@ -52,7 +64,7 @@ export default function Review() {
   };
 
   const decide = useCallback(
-    async (action: 'approve' | 'reject') => {
+    async (action: 'approve' | 'reject', replaceId?: string) => {
       if (!current || busy) return;
       setBusy(true);
       try {
@@ -62,8 +74,13 @@ export default function Review() {
         if (edit.service_id !== (current.service_id ?? '')) changed.service_id = edit.service_id || null;
         if (edit.category !== (current.category ?? 'other')) changed.category = edit.category;
 
-        await adminFetch(`/${action}/${current.id}`, { method: 'POST', body: action === 'approve' && Object.keys(changed).length ? { edits: changed } : {} });
-        toast.success(action === 'approve' ? (current.supersedes_id ? 'Approved. The old fact was archived.' : 'Approved and published.') : 'Rejected.');
+        const body: Record<string, any> = {};
+        if (action === 'approve') {
+          if (Object.keys(changed).length) body.edits = changed;
+          if (replaceId) body.replaceId = replaceId;
+        }
+        await adminFetch(`/${action}/${current.id}`, { method: 'POST', body });
+        toast.success(action === 'approve' ? (current.supersedes_id || replaceId ? 'Approved. The old fact was archived.' : 'Approved and published.') : 'Rejected.');
         advance(current.id);
       } catch (e: any) {
         toast.error(e.message);
@@ -202,6 +219,35 @@ export default function Review() {
                   </select>
                 </div>
               </div>
+
+              {similar === null ? (
+                <p className="mt-5 flex items-center gap-2 text-xs text-gray-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking for similar facts…</p>
+              ) : similar.length > 0 && (
+                <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-900"><Layers className="h-4 w-4" /> Similar facts already exist ({similar.length})</p>
+                  <p className="mb-3 mt-1 text-xs text-amber-900">
+                    {similar.some((s) => s.status === 'approved' && s.similarity >= 0.92)
+                      ? 'This looks almost identical to a published fact. Reject it, or replace the published one if this wording or source is better.'
+                      : 'If these say the same thing, replace the old one so users see only one. If they cover different details, approve this as a separate fact.'}
+                  </p>
+                  <ul className="space-y-2">
+                    {similar.map((s) => (
+                      <li key={s.id} className="rounded border border-amber-200 bg-white p-3 text-sm">
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                          <Chip tone={s.status === 'approved' ? 'green' : 'amber'}>{s.status === 'approved' ? 'published' : 'also waiting'}</Chip>
+                          <Chip tone="gold">{Math.round(s.similarity * 100)}% similar</Chip>
+                          {s.trust_level === 'secondary' && <Chip tone="red">news or guide</Chip>}
+                          <span className="text-xs text-gray-500">{s.source_details} · {timeAgo(s.last_verified_at ?? s.created_at)}</span>
+                        </div>
+                        <p className="text-gray-800">{s.chunk_text}</p>
+                        {s.status === 'approved' && (
+                          <button className={`${btn.ghost} mt-2 !px-2.5 !py-1 text-xs`} disabled={busy} onClick={() => decide('approve', s.id)}>Approve this one and replace that published fact</button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <p className="mb-1 text-xs font-semibold text-gray-500">Quote from the source</p>

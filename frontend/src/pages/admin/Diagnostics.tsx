@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { adminFetch } from '../../lib/adminApi';
-import { Card, PageTitle, btn } from './ui';
+import { Card, PageTitle, Pager, btn } from './ui';
 
 const ICON = {
   ok: <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600" />,
@@ -13,6 +13,9 @@ const ICON = {
 export default function Diagnostics() {
   const [data, setData] = useState<{ ranAt: string; checks: any[] } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'problems'>('all');
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -28,6 +31,10 @@ export default function Diagnostics() {
     run();
   }, [run]);
 
+  const rank: Record<string, number> = { fail: 0, warn: 1, ok: 2 };
+  const sorted = [...(data?.checks ?? [])].sort((a, b) => rank[a.status] - rank[b.status]);
+  const shown = filter === 'problems' ? sorted.filter((c) => c.status !== 'ok') : sorted;
+  const pageRows = shown.slice((page - 1) * size, page * size);
   const fails = data?.checks.filter((c) => c.status === 'fail').length ?? 0;
   const warns = data?.checks.filter((c) => c.status === 'warn').length ?? 0;
 
@@ -47,8 +54,14 @@ export default function Diagnostics() {
             <p className="font-semibold text-gray-900">{fails ? `${fails} problem(s) need fixing` : warns ? `Working, with ${warns} warning(s)` : 'Everything checked is working'}</p>
           </Card>
 
+          <div className="mb-3 flex gap-2">
+            {(['all', 'problems'] as const).map((f) => (
+              <button key={f} onClick={() => { setFilter(f); setPage(1); }} className={`rounded-full px-3 py-1 text-xs font-semibold ${filter === f ? 'bg-[#b08d57] text-white' : 'border border-gray-300 bg-white text-gray-600'}`}>{f === 'all' ? `All (${data.checks.length})` : `Problems only (${fails + warns})`}</button>
+            ))}
+          </div>
+
           <Card className="divide-y divide-gray-100">
-            {data.checks.map((c) => (
+            {pageRows.map((c) => (
               <div key={c.id} className="flex gap-3 p-4">
                 {ICON[c.status as 'ok' | 'warn' | 'fail']}
                 <div className="min-w-0">
@@ -58,6 +71,8 @@ export default function Diagnostics() {
                 </div>
               </div>
             ))}
+            {shown.length === 0 && <p className="p-6 text-center text-sm text-gray-500">No problems found.</p>}
+            {shown.length > 0 && <Pager page={page} total={shown.length} pageSize={size} sizes={[10, 25, 50]} onPage={setPage} onSize={(n) => { setSize(n); setPage(1); }} />}
           </Card>
         </>
       )}

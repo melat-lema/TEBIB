@@ -35,6 +35,8 @@ const copy = {
     myPacks: 'Your packs',
     none: 'No packs yet.',
     fail: 'Something went wrong.',
+    packSteps: ['Reading the verified facts…', 'Building your checklist…', 'Working out the fees…', 'Writing your letter…', 'Almost done…'],
+    packWait: 'This usually takes 20 to 40 seconds. Please keep this window open.',
   },
   am: {
     title: 'የAI ረዳት',
@@ -65,6 +67,8 @@ const copy = {
     myPacks: 'የእርስዎ ጥቅሎች',
     none: 'ገና ጥቅል የለም።',
     fail: 'የሆነ ስህተት ተፈጥሯል።',
+    packSteps: ['የተረጋገጡ መረጃዎችን በማንበብ ላይ…', 'ዝርዝርዎን በማዘጋጀት ላይ…', 'ክፍያዎችን በማስላት ላይ…', 'ደብዳቤዎን በመጻፍ ላይ…', 'ሊጠናቀቅ ነው…'],
+    packWait: 'ብዙውን ጊዜ ከ20 እስከ 40 ሰከንድ ይወስዳል። እባክዎ ይህን መስኮት ክፍት ያድርጉ።',
   },
 };
 
@@ -88,6 +92,17 @@ export default function PremiumPanel({ open, onClose, service, lang }: Props) {
   const [urgency, setUrgency] = useState('normal');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState<'pay' | 'pack' | null>(null);
+  const [stepIdx, setStepIdx] = useState(0);
+
+  // cycles the progress message while a pack is being written
+  useEffect(() => {
+    if (busy !== 'pack') {
+      setStepIdx(0);
+      return;
+    }
+    const id = setInterval(() => setStepIdx((i) => Math.min(i + 1, 4)), 6000);
+    return () => clearInterval(id);
+  }, [busy]);
 
   useEffect(() => {
     if (!open) return;
@@ -208,6 +223,12 @@ export default function PremiumPanel({ open, onClose, service, lang }: Props) {
                             <button onClick={createPack} disabled={busy !== null || me.packsUsed >= me.packsLimit} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#b08d57] py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#8c6b42] disabled:opacity-60">
                               {busy === 'pack' ? <><Loader2 className="h-4 w-4 animate-spin" />{t.creating}</> : t.create}
                             </button>
+                            {busy === 'pack' && (
+                              <div className="rounded-lg bg-[#b08d57]/10 p-3 text-xs text-[#5c4524]">
+                                <p className="font-semibold">{t.packSteps[stepIdx]}</p>
+                                <p className="mt-1">{t.packWait}</p>
+                              </div>
+                            )}
                           </>
                         )}
                         {config.enabled && <button onClick={subscribe} disabled={busy !== null} className="w-full text-center text-xs font-semibold text-[#8c6b42] hover:underline">{busy === 'pay' ? t.paying : t.renew(config.monthlyEtb)}</button>}

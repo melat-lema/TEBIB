@@ -2,22 +2,27 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { adminFetch } from '../../lib/adminApi';
-import { Card, Chip, Empty, PageTitle, btn, statusTone } from './ui';
+import { Card, Chip, Empty, PageTitle, Pager, btn, statusTone } from './ui';
 
 const OUTCOME_TONE: Record<string, string> = { saved: 'green', no_facts: 'gray', unchanged: 'gray', not_relevant: 'gray', failed: 'red' };
 
 export default function Logs() {
   const [logs, setLogs] = useState<any[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
   const [open, setOpen] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setLogs(await adminFetch('/scraper-logs?limit=40'));
+      const r = await adminFetch(`/scraper-logs?page=${page}&pageSize=${size}`);
+      setLogs(r.rows);
+      setTotal(r.total);
     } catch (e: any) {
       toast.error(e.message);
       setLogs([]);
     }
-  }, []);
+  }, [page, size]);
   useEffect(() => {
     load();
     const id = setInterval(load, 15000); // picks up a run you just started
@@ -95,6 +100,7 @@ export default function Logs() {
             </tbody>
           </table>
         )}
+        {total > 0 && <Pager page={page} total={total} pageSize={size} sizes={[10, 20, 50]} onPage={(p) => { setPage(p); setOpen(null); }} onSize={(n) => { setSize(n); setPage(1); setOpen(null); }} />}
       </Card>
     </>
   );
