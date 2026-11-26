@@ -192,7 +192,7 @@ Answer in ${language === 'am' ? 'Amharic' : 'English'}:`;
         const result = await this.chatModel.generateContent({
           model: this.modelFor(attempt, retries),
           contents: prompt,
-          config: { temperature: 0.2, responseMimeType: 'application/json' },
+          config: this.chatConfig({ temperature: 0.2, responseMimeType: 'application/json' }),
         });
         const parsed = JSON.parse((result.text ?? '').trim());
         if (parsed && typeof parsed === 'object') return parsed;

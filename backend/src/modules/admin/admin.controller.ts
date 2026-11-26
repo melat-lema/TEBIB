@@ -23,14 +23,15 @@ export class AdminController {
   // ---- dashboards
   @Get('stats') stats() { return this.admin.getStats(); }
   @Get('analytics') analytics() { return this.admin.getAnalytics(); }
-  @Get('scraper-logs') logs(@Query('limit') limit?: string) { return this.admin.getScraperLogs(Number(limit) || 30); }
+  @Get('scraper-logs') logs(@Query('page') page?: string, @Query('pageSize') pageSize?: string) { return this.admin.getScraperLogs(Number(page) || 1, Number(pageSize) || 20); }
 
   // ---- review queue
   @Get('pending') pending() { return this.admin.getPending(); }
+  @Get('pending/:id/similar') similar(@Param('id') id: string) { return this.admin.similarFor(id); }
 
   @Post('approve/:id')
-  approve(@Param('id') id: string, @Body() body: { edits?: any }) {
-    return this.admin.approveFact(id, body?.edits);
+  approve(@Param('id') id: string, @Body() body: { edits?: any; replaceId?: string }) {
+    return this.admin.approveFact(id, body?.edits, body?.replaceId);
   }
 
   @Post('reject/:id')
@@ -47,7 +48,7 @@ export class AdminController {
 
   // ---- knowledge base
   @Get('knowledge')
-  knowledge(@Query() q: { status?: string; serviceId?: string; q?: string; page?: string }) {
+  knowledge(@Query() q: { status?: string; serviceId?: string; q?: string; page?: string; pageSize?: string }) {
     return this.admin.listKnowledge(q);
   }
 

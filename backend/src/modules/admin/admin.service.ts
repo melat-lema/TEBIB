@@ -174,14 +174,13 @@ export class AdminService {
     };
   }
 
-  async getScraperLogs(limit = 30) {
-    const { data, error } = await supabase
-      .from('scraper_logs')
-      .select('*')
-      .order('ran_at', { ascending: false })
-      .limit(Math.min(Math.max(limit, 1), 100));
+  async getScraperLogs(page = 1, pageSize = 20) {
+    const size = [10, 20, 50].includes(pageSize) ? pageSize : 20;
+    const p = Math.max(1, page);
+    const from = (p - 1) * size;
+    const { data, count, error } = await supabase.from('scraper_logs').select('*', { count: 'exact' }).order('ran_at', { ascending: false }).range(from, from + size - 1);
     if (error) throw new BadRequestException(error.message);
-    return data ?? [];
+    return { rows: data ?? [], total: count ?? 0, page: p, pageSize: size };
   }
 
   // ------------------------------------------------------------------ review queue
@@ -229,7 +228,29 @@ export class AdminService {
     return out;
   }
 
-  async approveFact(id: string, edits?: any) {
+  /** Facts that look like this one (published or also waiting), so an admin never approves the same thing twice by accident. */
+  async similarFor(id: string) {
+    const { data: row } = await supabase.from('knowledge_base').select('id, chunk_text, service_id').eq('id', id).maybeSingle();
+    if (!row) throw new BadRequestException('Fact not found');
+    const sims = (await this.knowledge.findSimilar(row.chunk_text, 0.78, 8)).filter((x) => x.id !== id);
+    if (!sims.length) return [];
+    const { data: rows } = await supabase
+      .from('knowledge_base')
+      .select('id, status, chunk_text, chunk_text_am, trust_level, last_verified_at, created_at, source_details, service_id')
+      .in('id', sims.map((x) => x.id));
+    const byId = new Map((rows ?? []).map((r: any) => [r.id, r]));
+    return sims
+      .map((x) => ({ ...(byId.get(x.id) as any), similarity: x.similarity }))
+      .filter((x) => x.id)
+      .sort((a, b) => b.similarity - a.similarity);
+  }
+
+  async approveFact(id: string, edits?: any, replaceId?: string) {
+    // "Approve and replace": point this fact at the published one it replaces, then the normal flow archives the old one
+    if (replaceId && replaceId !== id) {
+      const { data: old } = await supabase.from('knowledge_base').select('id, status').eq('id', replaceId).maybeSingle();
+      if (old?.status === 'approved') await supabase.from('knowledge_base').update({ supersedes_id: replaceId }).eq('id', id);
+    }
     const patch = this.cleanEdits(edits);
     try {
       if (Object.keys(patch).length) await this.knowledge.updateChunk(id, patch);
@@ -277,9 +298,10 @@ export class AdminService {
 
   // ------------------------------------------------------------------ knowledge base
 
-  async listKnowledge(q: { status?: string; serviceId?: string; q?: string; page?: string }) {
+  async listKnowledge(q: { status?: string; serviceId?: string; q?: string; page?: string; pageSize?: string }) {
+    const size = [10, 25, 50, 100].includes(Number(q.pageSize)) ? Number(q.pageSize) : PAGE_SIZE;
     const page = Math.max(1, Number(q.page) || 1);
-    const from = (page - 1) * PAGE_SIZE;
+    const from = (page - 1) * size;
 
     let query = supabase
       .from('knowledge_base')
@@ -288,7 +310,7 @@ export class AdminService {
         { count: 'exact' },
       )
       .order('created_at', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, from + size - 1);
 
     query = STATUSES.includes(q.status ?? '') ? query.eq('status', q.status as string) : query.eq('status', 'approved');
     if (q.serviceId) query = query.eq('service_id', q.serviceId);
@@ -297,7 +319,7 @@ export class AdminService {
     const { data, count, error } = await query;
     if (error) throw new BadRequestException(error.message);
     const rows = (data ?? []).map((r: any) => ({ ...r, service_name: r.services?.name_en ?? null, services: undefined }));
-    return { rows, total: count ?? 0, page, pageSize: PAGE_SIZE };
+    return { rows, total: count ?? 0, page, pageSize: size };
   }
 
   async createKnowledge(body: any) {
