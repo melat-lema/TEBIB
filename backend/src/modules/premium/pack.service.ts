@@ -98,10 +98,12 @@ Rules:
       .eq('service_id', input.serviceId)
       .eq('status', 'approved')
       .order('last_verified_at', { ascending: false })
-      .limit(30);
+      .limit(20);
     if (!service || !facts?.length) throw new Error('No verified facts available for this service');
 
+    const t0 = Date.now();
     const raw = await this.ai.generateJson(this.buildPrompt(service, facts, input.language, input.answers));
+    this.logger.log(`Pack generated in ${((Date.now() - t0) / 1000).toFixed(1)}s from ${facts.length} facts`);
     const content = this.sanitize(raw, facts);
     if (!content.checklist.length && !content.steps.length) throw new Error('The generated pack was empty');
 
