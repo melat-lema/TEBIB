@@ -1,3 +1,4 @@
+// src/pages/AdminDashboard.tsx
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -81,7 +82,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f4f4f5]">
+    <div className="flex h-screen overflow-hidden bg-[#f4f4f5]">
       {open && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setOpen(false)} />}
 
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#1d1a16] text-gray-300 transition-transform duration-300 lg:static lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -93,7 +94,7 @@ export default function AdminDashboard() {
           <button onClick={() => setOpen(false)} className="lg:hidden" aria-label="Close menu"><X className="h-5 w-5" /></button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -118,7 +119,7 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center border-b border-gray-200 bg-white px-4 lg:hidden">
           <button onClick={() => setOpen(true)} aria-label="Open menu"><Menu className="h-6 w-6 text-gray-700" /></button>
           <span className="ml-3 font-semibold text-gray-900">{TABS.find((t) => t.id === tab)?.label}</span>
